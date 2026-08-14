@@ -1,26 +1,51 @@
 {
   "name": "axiom",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && node node_modules/vite/bin/vite.js build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@fontsource/jetbrains-mono": "^5.0.21",
+    "@fontsource/space-grotesk": "^5.0.30",
+    "@openrouter/ai-sdk-provider": "^0.1.0",
+    "@tanstack/react-query": "^5.60.0",
+    "ai": "^4.3.0",
+    "clsx": "^2.1.1",
+    "dexie": "^4.0.7",
+    "gsap": "^3.12.5",
+    "lucide-react": "^0.462.0",
+    "motion": "^11.15.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-markdown": "^9.0.3",
+    "remark-gfm": "^4.0.0",
+    "shiki": "^2.1.0",
+    "tailwind-merge": "^2.6.0",
+    "tailwindcss": "^4.0.9",
+    "zod": "^3.24.0",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@tailwindcss/vite": "^4.0.9",
+    "@testing-library/react": "^16.1.0",
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",
+    "jsdom": "^25.0.1",
     "oxlint": "^1.78.0",
+    "prettier": "^3.4.0",
     "typescript": "~7.0.2",
-    "vite": "^8.2.1"
+    "vite": "^8.2.1",
+    "vitest": "^2.1.0"
   },
   "packageManager": "pnpm@11.21.0+sha512.521705bce689924eac72f5a3587122f362689ef6571e55ba80076fd637c11132ecffada26fad4ea79c485bfddbfd3d5a2a5b05805a77e893de71ec8a6cca3bb1"
 }

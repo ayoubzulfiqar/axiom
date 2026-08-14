@@ -1,3 +1,11 @@
+# Build
+dist
+.vite
+*.tsbuildinfo
+
+# Env
+.env*.local
+
 # Logs
 logs
 *.log

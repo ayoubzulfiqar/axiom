@@ -1,0 +1,52 @@
+import { useBus } from '../stores/bus'
+import { useVaultStore } from '../../stores/vault'
+import { useMissionStore } from '../../stores/mission'
+import { clearFeed } from '../../stores/feed'
+import { runSimulation } from '../../engine/simulator'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog'
+import { Input } from '../components/ui/input'
+import { Button } from '../components/ui/button'
+import { Loader2 } from 'lucide-react'
+import { useState } from 'react'
+
+export function ObjectivePrompt() {
+  const open = useBus((s: { objectiveOpen: boolean }) => s.objectiveOpen)
+  const setOpen = useBus((s: { setObjectiveOpen: (v: boolean) => void }) => s.setObjectiveOpen)
+  const [text, setText] = useState('')
+  const connected = useVaultStore((s: { connected: boolean }) => s.connected)
+  const status = useMissionStore((s: { status: string }) => s.status)
+
+  const handleRun = async () => {
+    if (!text.trim()) return
+    if (!connected) {
+      useVaultStore.getState().setVaultOpen(true)
+      return
+    }
+    setOpen(false)
+    useMissionStore.setState({ status: 'running', objective: text, startedAt: Date.now() })
+    clearFeed()
+    runSimulation(text.trim())
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="bg-panel border-line text-ink max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-sm font-bold tracking-widest">MISSION OBJECTIVE</DialogTitle>
+        </DialogHeader>
+        <Input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Enter mission objective..."
+          className="bg-transparent border-line text-ink"
+          onKeyDown={(e) => e.key === 'Enter' && handleRun()}
+        />
+        <DialogFooter>
+          <Button onClick={handleRun} disabled={!text.trim() || status === 'running'} className="bg-ink text-bg hover:bg-ink/90">
+            {status === 'running' ? <Loader2 className="animate-spin" size={14} /> : 'EXECUTE'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
