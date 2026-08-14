@@ -16,7 +16,7 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen bg-bg text-ink flex flex-col overflow-hidden">
-      <BootOverlay />
+      {!booted && <BootOverlay />}
       {booted && (
         <div className="flex-1 flex flex-col min-w-0">
           <Roster />

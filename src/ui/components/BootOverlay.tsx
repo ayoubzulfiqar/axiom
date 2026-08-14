@@ -8,12 +8,17 @@ export function BootOverlay() {
   const setBooted = useBus((s) => s.setBooted)
 
   useEffect(() => {
+    const timeout = setTimeout(() => setBooted(true), 2500)
     const tl = gsap.timeline({
-      onComplete: () => setBooted(true),
+      onComplete: () => {
+        clearTimeout(timeout)
+        setBooted(true)
+      },
     })
     tl.fromTo(lineRefs.current, { opacity: 0, x: -12 }, { opacity: 1, x: 0, stagger: 0.08, duration: 0.3 })
     tl.to(barRef.current, { width: '100%', duration: 0.6, ease: 'power2.inOut' }, '-=0.1')
     tl.to(lineRefs.current, { opacity: 0, duration: 0.2, stagger: 0.04 })
+    return () => clearTimeout(timeout)
   }, [setBooted])
 
   const lines = [
