@@ -1,34 +1,27 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog'
 import { useBus } from '../stores/bus'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog'
+import { Button } from '../components/ui/button'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { useRef } from 'react'
-import { Button } from '../components/ui/button'
-import { Copy } from 'lucide-react'
 
-export function ArtifactModal({ artifact }: { artifact: string }) {
-  const open = useBus((s) => s.artifact !== null)
-  const setArtifact = useBus((s) => s.setArtifact)
-  const ref = useRef<HTMLDivElement>(null)
+export function ArtifactModal() {
+  const artifact = useBus((s: { artifact: string | null }) => s.artifact)
+  const setDetailOpen = useBus((s: { setDetailOpen: (v: boolean) => void }) => s.setDetailOpen)
 
-  const handleCopy = async () => {
-    if (!artifact) return
-    await navigator.clipboard.writeText(artifact)
-  }
+  if (!artifact) return null
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && setArtifact(null)}>
-      <DialogContent className="bg-panel border-line text-ink max-w-3xl max-h-[80vh] overflow-y-auto">
+    <Dialog open={!!artifact} onOpenChange={() => { }}>
+      <DialogContent className="bg-panel border-line text-ink max-w-2xl max-h-[80vh]" data-testid="artifact-modal">
         <DialogHeader>
-          <DialogTitle className="text-sm font-bold tracking-widest flex items-center justify-between">
-            <span>ARTIFACT</span>
-            <Button size="sm" variant="outline" onClick={handleCopy} className="border-line text-ink">
-              <Copy size={14} />
-            </Button>
-          </DialogTitle>
+          <DialogTitle className="text-sm font-bold tracking-widest">ARTIFACT</DialogTitle>
         </DialogHeader>
-        <div ref={ref} className="prose prose-invert max-w-none font-mono text-xs leading-6">
+        <div data-testid="artifact-body" className="text-xs max-h-[60vh] overflow-y-auto prose prose-invert">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{artifact}</ReactMarkdown>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button size="sm" data-testid="copy-button" onClick={() => navigator.clipboard.writeText(artifact)} className="bg-ink text-bg">COPY</Button>
+          <Button size="sm" variant="ghost" onClick={() => { setDetailOpen(false); useBus.setState({ artifact: null }) }}>CLOSE</Button>
         </div>
       </DialogContent>
     </Dialog>

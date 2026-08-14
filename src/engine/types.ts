@@ -1,46 +1,32 @@
-export type AgentRole =
-  | 'orchestrator'
-  | 'researcher'
-  | 'analyst'
-  | 'writer'
-  | 'critic'
-
 export interface AgentDef {
   id: string
   label: string
-  role: AgentRole
+  role: string
   model: string
   system: string
   state: 'idle' | 'running' | 'done' | 'fault'
+  tools?: string[]
 }
 
-export interface AgentTask {
-  agent: string
-  task: string
-}
-
-export interface PlanStep {
-  thought: string
-  dispatch: AgentTask[]
-  final: string | null
-}
-
-export interface DispatchEvent {
-  from: string
-  to: string
-  tag: string
-}
+export type AgentRole = string
 
 export type BusEvent =
   | { type: 'mission-start'; objective: string }
   | { type: 'plan-step'; n: number; total: number; thought: string }
-  | { type: 'dispatch'; from: string; to: string; tag: string }
+  | { type: 'dispatch'; from: string; to: string; tag?: string }
   | { type: 'agent-start'; agent: string }
   | { type: 'token'; agent: string; text: string }
   | { type: 'agent-done'; agent: string }
-  | { type: 'fault'; agent: string; error: string }
+  | { type: 'tool-call'; agent: string; tool: string; input: string }
+  | { type: 'tool-result'; agent: string; tool: string; ok: boolean }
   | { type: 'mission-complete'; final: string }
-  | { type: 'log'; tag: string; text: string; sys?: boolean }
+  | { type: 'fault'; agent: string; error: string }
+
+export interface Plan {
+  thought: string
+  dispatch: { agent: string; task: string }[]
+  final: string | null
+}
 
 export interface MissionRecord {
   id?: number
@@ -49,10 +35,4 @@ export interface MissionRecord {
   steps: number
   tokens: number
   artifact: string
-}
-
-export interface VaultBalance {
-  usage: number
-  limit: number
-  label: string
 }

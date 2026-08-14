@@ -37,12 +37,13 @@ export function ObjectivePrompt() {
         <Input
           value={text}
           onChange={(e) => setText(e.target.value)}
+          data-testid="objective-input"
           placeholder="Enter mission objective..."
           className="bg-transparent border-line text-ink"
           onKeyDown={(e) => e.key === 'Enter' && handleRun()}
         />
         <DialogFooter>
-          <Button onClick={handleRun} disabled={!text.trim() || status === 'running'} className="bg-ink text-bg hover:bg-ink/90">
+          <Button data-testid="objective-submit" onClick={handleRun} disabled={!text.trim() || status === 'running'} className="bg-ink text-bg hover:bg-ink/90">
             {status === 'running' ? <Loader2 className="animate-spin" size={14} /> : 'EXECUTE'}
           </Button>
         </DialogFooter>

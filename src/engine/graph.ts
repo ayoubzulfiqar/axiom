@@ -1,109 +1,77 @@
-export interface GraphNode {
+export interface NodeState {
   id: string
+  label: string
   x: number
   y: number
   vx: number
   vy: number
-  radius: number
-  state: 'idle' | 'running' | 'done' | 'fault'
-}
-
-export interface GraphEdge {
-  from: string
-  to: string
-  progress: number
-  particleT: number
-  active: boolean
+  state: string
 }
 
 export interface Graph {
-  nodes: Map<string, GraphNode>
-  edges: GraphEdge[]
+  nodes: Map<string, NodeState>
+  edges: { from: string; to: string; progress: number }[]
 }
 
-export function createGraph(nodeIds: string[]): Graph {
-  const nodes = new Map<string, GraphNode>()
-  const cx = 0.5
-  const cy = 0.5
-  const r = 0.28
-  for (let i = 0; i < nodeIds.length; i++) {
-    const angle = (i / nodeIds.length) * Math.PI * 2 - Math.PI / 2
-    nodes.set(nodeIds[i], {
-      id: nodeIds[i],
-      x: cx + Math.cos(angle) * r,
-      y: cy + Math.sin(angle) * r,
+export function createGraph(ids: string[]): Graph {
+  const nodes = new Map<string, NodeState>()
+  const centerX = window.innerWidth / 2
+  const centerY = window.innerHeight / 2
+  ids.forEach((id, i) => {
+    const angle = (i / ids.length) * Math.PI * 2
+    const radius = 140
+    nodes.set(id, {
+      id,
+      label: id,
+      x: centerX + Math.cos(angle) * radius,
+      y: centerY + Math.sin(angle) * radius,
       vx: 0,
       vy: 0,
-      radius: 0.018 + nodeIds[i] === 'ORCH' ? 0.008 : 0,
       state: 'idle',
     })
-  }
-  const edges: GraphEdge[] = []
-  return { nodes, edges }
-}
-
-export function stepPhysics(g: Graph, dt: number) {
-  const repulsion = 24000
-  const k = 0.02
-  const damping = 0.86
-  const speedCap = 0.0015
-  const arr = Array.from(g.nodes.values())
-  for (let i = 0; i < arr.length; i++) {
-    for (let j = i + 1; j < arr.length; j++) {
-      const a = arr[i]
-      const b = arr[j]
-      const dx = a.x - b.x
-      const dy = a.y - b.y
-      const d2 = dx * dx + dy * dy
-      if (d2 > repulsion) continue
-      const d = Math.sqrt(d2) || 0.0001
-      const f = (repulsion - d2) / d * k * dt
-      const fx = dx * f
-      const fy = dy * f
-      a.vx += fx
-      a.vy += fy
-      b.vx -= fx
-      b.vy -= fy
-    }
-  }
-  // center gravity
-  for (const n of arr) {
-    n.vx += (0.5 - n.x) * 0.001 * dt
-    n.vy += (0.5 - n.y) * 0.001 * dt
-  }
-  for (const n of arr) {
-    const speed = Math.sqrt(n.vx ** 2 + n.vy ** 2)
-    if (speed > speedCap) {
-      n.vx = (n.vx / speed) * speedCap
-      n.vy = (n.vy / speed) * speedCap
-    }
-    n.vx *= damping
-    n.vy *= damping
-    n.x += n.vx * dt
-    n.y += n.vy * dt
-    // clamp
-    n.x = Math.min(Math.max(n.x, 0.05), 0.95)
-    n.y = Math.min(Math.max(n.y, 0.05), 0.95)
-  }
+  })
+  return { nodes, edges: [] }
 }
 
 export function addEdge(g: Graph, from: string, to: string) {
-  g.edges.push({ from, to, progress: 0, particleT: 0, active: true })
-}
-
-export function tickEdges(g: Graph, dt: number, activeMission: boolean) {
-  for (const e of g.edges) {
-    if (e.active && activeMission) {
-      e.progress = Math.min(1, e.progress + 0.0008 * dt)
-      e.particleT = (e.particleT + 0.0018 * dt) % 1
-    } else {
-      e.progress = Math.max(0, e.progress - 0.0005 * dt)
-      e.particleT = 0
-    }
+  if (!g.edges.find((e) => e.from === from && e.to === to)) {
+    g.edges.push({ from, to, progress: 0 })
   }
 }
 
-export function setNodeState(g: Graph, id: string, state: GraphNode['state']) {
-  const n = g.nodes.get(id)
-  if (n) n.state = state
+export function stepPhysics(g: Graph, dt: number) {
+  const nodes = Array.from(g.nodes.values())
+  const repulsion = 4000
+  const damping = 0.92
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const dx = nodes[j].x - nodes[i].x
+      const dy = nodes[j].y - nodes[i].y
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1
+      const force = repulsion / (dist * dist)
+      const fx = (dx / dist) * force
+      const fy = (dy / dist) * force
+      nodes[i].vx -= fx
+      nodes[i].vy -= fy
+      nodes[j].vx += fx
+      nodes[j].vy += fy
+    }
+  }
+  for (const node of nodes) {
+    node.vx *= damping
+    node.vy *= damping
+    node.x += node.vx * dt * 0.01
+    node.y += node.vy * dt * 0.01
+  }
+}
+
+export function tickEdges(g: Graph, dt: number, active: boolean) {
+  for (const edge of g.edges) {
+    if (active) edge.progress = Math.min(1, edge.progress + dt * 0.002)
+  }
+}
+
+export function setNodeState(g: Graph, id: string, state: string) {
+  const node = g.nodes.get(id)
+  if (node) node.state = state
 }

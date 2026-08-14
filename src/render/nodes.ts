@@ -8,116 +8,63 @@ export function drawNodes(
   selectedId: string | null,
   time: number
 ) {
-  const w = s.width / s.dpr
-  const h = s.height / s.dpr
-  for (const n of g.nodes.values()) {
-    const x = n.x * w
-    const y = n.y * h
-    const r = (n.radius + 0.014) * Math.min(w, h)
-
-    const birthAge = Math.min(time / 680, 1)
-    if (birthAge < 1) {
-      const scale = easeOutBack(birthAge)
-      cx.save()
-      cx.globalAlpha = 1 - birthAge
-      cx.strokeStyle = 'rgb(255 255 255 / .35)'
-      cx.lineWidth = 1.5
-      cx.beginPath()
-      cx.arc(x, y, r * (1 + (1 - scale) * 0.6), 0, Math.PI * 2)
-      cx.stroke()
-      cx.restore()
+  for (const node of g.nodes.values()) {
+    const x = node.x * s.zoom + s.panX
+    const y = node.y * s.zoom + s.panY
+    const radius = 28 * s.zoom
+    cx.save()
+    if (node.state === 'running') {
+      cx.shadowColor = 'rgba(255,255,255,0.8)'
+      cx.shadowBlur = 12 + Math.sin(time / 180) * 4
+    } else if (node.state === 'done') {
+      cx.shadowColor = 'rgba(255,255,255,0.4)'
+      cx.shadowBlur = 4
     }
-
-    if (n.state === 'running') {
-      const pulse = 0.5 + 0.5 * Math.sin(time * 0.004)
-      const halo = r * (1.4 + pulse * 0.3)
-      const grad = cx.createRadialGradient(x, y, r * 0.6, x, y, halo)
-      grad.addColorStop(0, 'rgb(255 255 255 / .2)')
-      grad.addColorStop(1, 'transparent')
-      cx.fillStyle = grad
-      cx.beginPath()
-      cx.arc(x, y, halo, 0, Math.PI * 2)
-      cx.fill()
-    }
-
-    const alpha = n.state === 'done' ? 1 : n.state === 'fault' ? 0.6 : 0.9
-    cx.fillStyle = `rgb(255 255 255 / ${alpha})`
     cx.beginPath()
-    cx.arc(x, y, r, 0, Math.PI * 2)
+    cx.arc(x, y, radius, 0, Math.PI * 2)
+    cx.fillStyle = node.state === 'fault' ? '#ef4444' : '#0a0a0a'
     cx.fill()
-
-    cx.fillStyle = 'rgb(6 6 7)'
-    cx.font = `600 ${Math.max(10, r * 0.9)}px var(--font-mono)`
+    cx.strokeStyle = node.state === 'fault' ? '#ef4444' : '#e5e5e5'
+    cx.lineWidth = node.id === selectedId ? 2 : 1
+    cx.stroke()
+    cx.shadowBlur = 0
+    cx.fillStyle = '#e5e5e5'
+    cx.font = `${10 * s.zoom}px "JetBrains Mono" `
     cx.textAlign = 'center'
     cx.textBaseline = 'middle'
-    cx.fillText(n.id.slice(0, 2), x, y)
-
-    if (n.id === selectedId) {
-      const b = r + 8
-      const len = 8
-      cx.strokeStyle = 'rgb(255 255 255)'
-      cx.lineWidth = 2
-      cx.beginPath()
-      cx.moveTo(x - b, y - b + len)
-      cx.lineTo(x - b, y - b)
-      cx.lineTo(x - b + len, y - b)
-      cx.moveTo(x + b - len, y - b)
-      cx.lineTo(x + b, y - b)
-      cx.lineTo(x + b, y - b + len)
-      cx.moveTo(x + b, y + b - len)
-      cx.lineTo(x + b, y + b)
-      cx.lineTo(x + b - len, y + b)
-      cx.moveTo(x + b - len, y + b)
-      cx.lineTo(x - b, y + b)
-      cx.lineTo(x - b, y + b - len)
-      cx.stroke()
-    }
+    cx.fillText(node.label, x, y)
+    cx.restore()
   }
 }
 
-function easeOutBack(t: number): number {
-  const c1 = 1.70158
-  const c3 = c1 + 1
-  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2)
-}
-
-export function drawOrchestratorRadar(cx: CanvasRenderingContext2D, w: number, h: number, time: number) {
-  const cx_ = w / 2
-  const cy_ = h / 2
-  const radius = 96
-  const angle = (time * 0.001) % (Math.PI * 2)
-  cx.strokeStyle = 'rgb(255 255 255 / .12)'
+export function drawOrchestratorRadar(cx: CanvasRenderingContext2D, width: number, height: number, time: number) {
+  cx.save()
+  cx.strokeStyle = 'rgba(255,255,255,0.12)'
   cx.lineWidth = 1
-  cx.beginPath()
-  cx.arc(cx_, cy_, radius, 0, Math.PI * 2)
-  cx.stroke()
-  const grad = cx.createLinearGradient(cx_ - radius, cy_ - radius, cx_ + radius, cy_ + radius)
-  grad.addColorStop(0, 'rgb(255 255 255 / .25)')
-  grad.addColorStop(1, 'transparent')
-  cx.fillStyle = grad
+  const cx_ = width / 2
+  const cy_ = height / 2
+  const radius = Math.min(width, height) * 0.35
+  const angle = (time / 2000) * Math.PI * 2
   cx.beginPath()
   cx.moveTo(cx_, cy_)
-  cx.arc(cx_, cy_, radius, angle, angle + 1.2)
-  cx.closePath()
-  cx.fill()
+  cx.lineTo(cx_ + Math.cos(angle) * radius, cy_ + Math.sin(angle) * radius)
+  cx.stroke()
+  cx.restore()
 }
 
-export function drawDoneGlyph(cx: CanvasRenderingContext2D, w: number, h: number, time: number) {
-  const cx_ = w / 2
-  const cy_ = h / 2
-  const s = 14
-  cx.strokeStyle = 'rgb(255 255 255 / .7)'
+export function drawDoneGlyph(cx: CanvasRenderingContext2D, width: number, height: number) {
+  cx.save()
+  cx.strokeStyle = 'rgba(255,255,255,0.35)'
   cx.lineWidth = 2
-  cx.lineCap = 'round'
-  const progress = Math.min(time / 400, 1)
+  const cx_ = width / 2
+  const cy_ = height / 2
+  const radius = Math.min(width, height) * 0.08
+  const grad = cx.createLinearGradient(cx_ - radius, cy_ - radius, cx_ + radius, cy_ + radius)
+  grad.addColorStop(0, '#ffffff')
+  grad.addColorStop(1, '#737373')
+  cx.fillStyle = grad
   cx.beginPath()
-  cx.moveTo(cx_ - s, cy_)
-  cx.lineTo(cx_ - 2, cy_ + s)
-  cx.stroke()
-  const endX = cx_ - 2 + (cx_ + s - (cx_ - 2)) * progress
-  const endY = cy_ + s + ((cy_ - 6) - (cy_ + s)) * progress
-  cx.beginPath()
-  cx.moveTo(cx_ - 2, cy_ + s)
-  cx.lineTo(endX, endY)
-  cx.stroke()
+  cx.arc(cx_, cy_, radius, 0, Math.PI * 2)
+  cx.fill()
+  cx.restore()
 }

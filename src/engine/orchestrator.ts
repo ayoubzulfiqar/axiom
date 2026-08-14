@@ -1,10 +1,12 @@
 import bus from './bus'
 import { parsePlan } from './protocol'
 import { getDefs, getDef, setAgentState } from './agents'
-import { loadKey, API_BASE } from './vault'
+import { loadKey, budgetAvailable } from './vault'
+import { planOnce, workerStream, makeWebSearchTool, makeCodeExecTool } from './llm'
 
-const MAX_STEPS = 6
-const MAX_TOKENS = 1500
+export const MAX_STEPS = 6
+export const MAX_TOKENS = 1500
+const RETRY_DELAY_MS = 800
 
 export interface MissionContext {
   abortController: AbortController
@@ -17,76 +19,59 @@ const latencyTimestamps = new Map<string, number>()
 
 export function abortAll() {
   for (const ac of running) {
-    try {
-      ac.abort()
-    } catch {}
+    try { ac.abort() } catch {}
   }
   running.clear()
 }
 
-async function llmCall(model: string, system: string, prompt: string, signal: AbortSignal, stream = false): Promise<string> {
-  const apiKey = loadKey()
-  if (!apiKey) throw new Error('NO_KEY')
-  const base = API_BASE.replace(/\/$/, '')
-  const body: Record<string, unknown> = {
-    model,
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: prompt },
-    ],
-    max_tokens: MAX_TOKENS,
-    stream,
-  }
-  const controller = new AbortController()
-  signal.addEventListener('abort', () => controller.abort(), { once: true })
-  const res = await fetch(`${base}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'HTTP-Referer': typeof location !== 'undefined' ? location.origin : '',
-      'X-Title': 'AXIOM Orchestration',
-    },
-    body: JSON.stringify(body),
-    signal: controller.signal,
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const data = await res.json()
-  if (stream) {
-    // simple text extraction from SSE-like response
-    const text = data.choices?.[0]?.message?.content ?? ''
-    return text
-  }
-  return data.choices?.[0]?.message?.content ?? ''
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export async function runMission(
-  objective: string,
-  signal: AbortSignal
-): Promise<string> {
+export async function runMission(objective: string, signal: AbortController): Promise<string> {
+  const apiKey = await loadKey()
+  if (!apiKey) {
+    bus.emit({ type: 'fault', agent: 'orchestrator', error: 'AUTH ▸ missing API key' })
+    throw new Error('AUTH')
+  }
+
+  const budget = await budgetAvailable(apiKey)
+  if (!budget.ok) {
+    bus.emit({ type: 'fault', agent: 'orchestrator', error: `BUDGET ▸ usage ${budget.usage?.toFixed(4)} / limit ${budget.limit?.toFixed(2)}` })
+    throw new Error('BUDGET')
+  }
+
+  running.add(signal)
   bus.emit({ type: 'mission-start', objective })
   const history: string[] = []
   try {
     for (let steps = 0; steps < MAX_STEPS; steps++) {
+      if (signal.signal.aborted) throw new Error('ABORTED')
       const orchestrator = getDef('ORCH') ?? getDefs()[0]
       const agentList = getDefs().map((d) => `- ${d.id} (${d.role})`).join('\n')
       const context = history.length ? `\nPrevious steps:\n${history.join('\n\n')}` : ''
-      const planText = await llmCall(
-        orchestrator.model,
-        orchestrator.system,
-        `Objective: ${objective}\nStep: ${steps + 1} of ${MAX_STEPS}\nAvailable agents:\n${agentList}\n${context}\nRespond only with JSON.`,
-        signal
-      )
+      const planText = await planOnce({
+        model: orchestrator.model,
+        system: orchestrator.system,
+        user: `Objective: ${objective}\nStep: ${steps + 1} of ${MAX_STEPS}\nAvailable agents:\n${agentList}\n${context}\nRespond only with JSON.`,
+        signal: signal.signal,
+        maxTokens: MAX_TOKENS,
+      })
       const parsed = parsePlan(planText)
       if (!parsed.ok) {
-        const retry = await llmCall(
-          orchestrator.model,
-          orchestrator.system,
-          `The previous response failed to parse: ${parsed.error}. Resend JSON only.`,
-          signal
-        )
+        if (signal.signal.aborted) throw new Error('ABORTED')
+        const retry = await planOnce({
+          model: orchestrator.model,
+          system: orchestrator.system,
+          user: `The previous response failed to parse: ${parsed.error}. Resend JSON only.`,
+          signal: signal.signal,
+          maxTokens: MAX_TOKENS,
+        })
         const parsed2 = parsePlan(retry)
-        if (!parsed2.ok) throw new Error(`PLAN_PARSE_FAIL: ${parsed2.error}`)
+        if (!parsed2.ok) {
+          bus.emit({ type: 'fault', agent: 'orchestrator', error: `PLAN_PARSE_FAIL: ${parsed2.error}` })
+          throw new Error(`PLAN_PARSE_FAIL: ${parsed2.error}`)
+        }
         const plan = parsed2.plan
         bus.emit({ type: 'plan-step', n: steps + 1, total: MAX_STEPS, thought: plan.thought })
         if (plan.final) {
@@ -123,13 +108,22 @@ export async function runMission(
     return fallback
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'UNKNOWN'
-    if (msg === 'ABORTED') throw new Error('ABORTED')
+    if (msg === 'ABORTED') {
+      bus.emit({ type: 'fault', agent: 'orchestrator', error: 'ABORTED' })
+      throw new Error('ABORTED')
+    }
     bus.emit({ type: 'fault', agent: 'orchestrator', error: msg })
     throw err
+  } finally {
+    running.delete(signal)
   }
 }
 
-async function dispatchAgent(objective: string, task: { agent: string; task: string }, signal: AbortSignal): Promise<string> {
+export async function dispatchAgent(
+  objective: string,
+  task: { agent: string; task: string },
+  signal: AbortController
+): Promise<string> {
   const def = getDef(task.agent)
   if (!def) throw new Error(`UNKNOWN_AGENT ${task.agent}`)
   setAgentState(task.agent, 'running')
@@ -137,16 +131,44 @@ async function dispatchAgent(objective: string, task: { agent: string; task: str
   latencyTimestamps.set(task.agent, Date.now())
   let accumulated = ''
   try {
-    const stream = await llmCall(def.model, def.system, `Mission objective: ${objective}\nTask: ${task.task}`, signal, true)
-    accumulated = stream
-    bus.emit({ type: 'token', agent: task.agent, text: stream })
+    const tools: Record<string, any> = {}
+    if (def.tools?.includes('web_search')) {
+      tools.web_search = makeWebSearchTool()
+    }
+    if (def.tools?.includes('code_exec')) {
+      tools.code_exec = makeCodeExecTool()
+    }
+
+    const result = await workerStream({
+      model: def.model,
+      system: def.system,
+      user: `Mission objective: ${objective}\nTask: ${task.task}`,
+      signal: signal.signal,
+      maxTokens: MAX_TOKENS,
+      tools,
+      maxSteps: 3,
+      onChunk: ({ textDelta }) => {
+        accumulated += textDelta ?? ''
+        bus.emit({ type: 'token', agent: task.agent, text: textDelta ?? '' })
+      },
+    })
+    const text = accumulated || result.text || ''
     setAgentState(task.agent, 'done')
     bus.emit({ type: 'agent-done', agent: task.agent })
-    return accumulated
+    return text
   } catch (err: unknown) {
     setAgentState(task.agent, 'fault')
     const msg = err instanceof Error ? err.message : 'UNKNOWN'
-    bus.emit({ type: 'fault', agent: task.agent, error: msg })
+    if (msg.includes('429') || msg.toLowerCase().includes('rate')) {
+      await sleep(RETRY_DELAY_MS)
+      bus.emit({ type: 'fault', agent: task.agent, error: `RATE ▸ ${msg}` })
+    } else if (msg.includes('401')) {
+      bus.emit({ type: 'fault', agent: task.agent, error: 'AUTH ▸ invalid key' })
+    } else if (msg.includes('402')) {
+      bus.emit({ type: 'fault', agent: task.agent, error: 'CREDITS ▸ insufficient balance' })
+    } else {
+      bus.emit({ type: 'fault', agent: task.agent, error: msg })
+    }
     throw err
   }
 }

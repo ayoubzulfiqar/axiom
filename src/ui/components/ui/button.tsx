@@ -37,8 +37,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 )
 Button.displayName = 'Button'
 
-export { Button }
-export { cn } from '../lib/utils'
+export { Button, cn }
 
 type cnVariants = { variant?: keyof typeof buttonVariants.variant }
 type cnSizes = { size?: keyof typeof buttonVariants.size }

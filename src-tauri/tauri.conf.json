@@ -1,0 +1,39 @@
+{
+  "build": {
+    "beforeDevCommand": "pnpm run dev",
+    "beforeBuildCommand": "pnpm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi", "app", "dmg"],
+    "icon": ["icons/icon.png", "icons/icon.ico"]
+  },
+  "productName": "AXIOM",
+  "version": "2.1.0",
+  "identifier": "com.axiom.orchestrator",
+  "platforms": ["windows", "macos", "linux"],
+  "app": {
+    "windows": [
+      {
+        "title": "AXIOM",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 980,
+        "minHeight": 640,
+        "decorations": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "connect-src": "'self' https://openrouter.ai https://*.openrouter.ai",
+        "img-src": "'self' data: https:",
+        "style-src": "'self' 'unsafe-inline'",
+        "script-src": "'self'"
+      }
+    }
+  }
+}

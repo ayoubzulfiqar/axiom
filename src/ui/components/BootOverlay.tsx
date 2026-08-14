@@ -1,63 +1,43 @@
-import { useCallback, useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { gsap } from 'gsap'
-import { useMissionStore } from '../../stores/mission'
-import { useVaultStore } from '../../stores/vault'
-import { useBus } from '../stores/bus'
-import { runSimulation } from '../../engine/simulator'
-import { loadKey } from '../../engine/vault'
+import { useBus } from '../../ui/stores/bus'
 
 export function BootOverlay() {
-  const ref = useRef<HTMLDivElement>(null)
-  const setVaultOpen = useVaultStore((s: { setVaultOpen: (v: boolean) => void }) => s.setVaultOpen)
-  const setObjectiveOpen = useBus((s: { setObjectiveOpen: (v: boolean) => void }) => s.setObjectiveOpen)
+  const lineRefs = useRef<HTMLDivElement[]>([])
+  const barRef = useRef<HTMLDivElement>(null)
+  const setBooted = useBus((s) => s.setBooted)
 
   useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline()
-      tl.to(el, { opacity: 1, duration: 0.6 })
-        .to('.boot-line', { opacity: 1, duration: 0.3, stagger: 0.26 })
-        .to('.boot-progress', { width: '100%', duration: 0.8, ease: 'power2.inOut' })
-        .to(el, { opacity: 0, duration: 0.7, delay: 0.3 })
-    }, el)
-    return () => ctx.revert()
-  }, [])
+    const tl = gsap.timeline({
+      onComplete: () => setBooted(true),
+    })
+    tl.fromTo(lineRefs.current, { opacity: 0, x: -12 }, { opacity: 1, x: 0, stagger: 0.08, duration: 0.3 })
+    tl.to(barRef.current, { width: '100%', duration: 0.6, ease: 'power2.inOut' }, '-=0.1')
+    tl.to(lineRefs.current, { opacity: 0, duration: 0.2, stagger: 0.04 })
+  }, [setBooted])
 
-  const handleSim = useCallback(() => {
-    useMissionStore.setState({ status: 'running', objective: 'SIM mission', startedAt: Date.now() })
-    runSimulation('SIM mission')
-    setObjectiveOpen(false)
-  }, [setObjectiveOpen])
-
-  const handleLive = useCallback(() => {
-    if (!loadKey()) {
-      setVaultOpen(true)
-      return
-    }
-    setObjectiveOpen(true)
-  }, [setVaultOpen, setObjectiveOpen])
+  const lines = [
+    'BOOT SEQUENCE INITIALIZED',
+    'LOADING ENGINE MODULES',
+    'ESTABLISHING SECURE CHANNEL',
+    'MESH READY',
+  ]
 
   return (
-    <div ref={ref} className="fixed inset-0 z-[100] bg-bg/95 backdrop-blur-md flex flex-col items-center justify-center gap-8 opacity-0">
-      <div className="w-6 h-6 rotate-45 bg-ink mb-4" />
-      <h1 className="text-2xl font-bold tracking-[0.3em]">AXIOM</h1>
-      <div className="flex flex-col gap-2 font-mono text-xs text-dim w-64">
-        <div className="boot-line opacity-0">initializing orchestrator</div>
-        <div className="boot-line opacity-0">loading agent mesh</div>
-        <div className="boot-line opacity-0">binding event bus</div>
-        <div className="boot-line opacity-0">renderer online</div>
-      </div>
-      <div className="w-64 h-1 bg-ghost rounded overflow-hidden">
-        <div className="boot-progress h-full bg-ink w-0 transition-none" />
-      </div>
-      <div className="flex gap-3">
-        <button onClick={handleSim} className="px-4 py-2 border border-line bg-panel hover:bg-ink hover:text-bg transition rounded text-xs font-bold tracking-wider">
-          SIM MODE
-        </button>
-        <button onClick={handleLive} className="px-4 py-2 border border-line bg-panel hover:bg-ink hover:text-bg transition rounded text-xs font-bold tracking-wider">
-          LIVE MISSION
-        </button>
+    <div className="fixed inset-0 z-50 bg-bg flex flex-col items-center justify-center">
+      <div className="w-64 space-y-2">
+        {lines.map((text, i) => (
+          <div
+            key={text}
+            ref={(el) => { if (el) lineRefs.current[i] = el }}
+            className="text-xs font-mono text-ink/80"
+          >
+            {text}
+          </div>
+        ))}
+        <div className="h-px bg-line">
+          <div ref={barRef} className="h-full bg-ink w-0" />
+        </div>
       </div>
     </div>
   )

@@ -50,11 +50,6 @@ export function bindFeedBus() {
       scheduleFlush()
       return
     }
-    if (ev.type === 'log') {
-      pending.push({ id: ++idCounter, tag: ev.tag, text: ev.text, sys: ev.sys, time: Date.now() })
-      scheduleFlush()
-      return
-    }
     if (ev.type === 'plan-step') {
       pending.push({ id: ++idCounter, tag: 'PLAN', text: `Step ${ev.n}/${ev.total}: ${ev.thought}`, time: Date.now() })
       scheduleFlush()

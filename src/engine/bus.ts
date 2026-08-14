@@ -32,6 +32,10 @@ const bus = {
     this.on(wrapper)
     return () => this.off(wrapper)
   },
+
+  clear() {
+    this.listeners.clear()
+  },
 }
 
 export default bus

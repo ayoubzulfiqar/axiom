@@ -21,6 +21,7 @@ export function Roster() {
           <button
             key={a.id}
             onClick={() => {}}
+            data-testid="roster-row"
             className={`w-full text-left px-2 py-2 rounded border transition ${a.id === selectedId ? 'border-ink bg-panel' : 'border-line hover:border-faint'}`}
           >
             <div className="flex items-center justify-between">
@@ -47,7 +48,7 @@ export function Roster() {
       <div className="hidden md:block">{content}</div>
       <div className="md:hidden">
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
+          <SheetTrigger>
             <Button variant="outline" size="sm" className="md:hidden border-line text-ink">
               ROSTER
             </Button>

@@ -16,13 +16,15 @@ export const DEFAULT_AGENT_DEFS: Omit<AgentDef, 'id' | 'state'>[] = [
     label: 'RESEARCHER',
     role: 'researcher',
     model: 'openai/gpt-4o-mini',
-    system: 'You are AXIOM Researcher. Return concise findings.',
+    system: 'You are AXIOM Researcher. Return concise findings. Use web_search when helpful.',
+    tools: ['web_search'],
   },
   {
     label: 'ANALYST',
     role: 'analyst',
     model: 'google/gemini-flash-1.5',
-    system: 'You are AXIOM Analyst. Provide structured analysis.',
+    system: 'You are AXIOM Analyst. Provide structured analysis. Use code_exec for calculations.',
+    tools: ['code_exec'],
   },
   {
     label: 'WRITER',

@@ -89,7 +89,7 @@ export function Stage() {
       drawEdges(ctx, g, s, t)
       drawNodes(ctx, g, s, selectedId, t)
       if (missionActive) drawOrchestratorRadar(ctx, s.width / s.dpr, s.height / s.dpr, t)
-      if (useMissionStore.getState().status === 'complete') drawDoneGlyph(ctx, s.width / s.dpr, s.height / s.dpr, t)
+      if (useMissionStore.getState().status === 'complete') drawDoneGlyph(ctx, s.width / s.dpr, s.height / s.dpr)
       ctx.restore()
       drawVignette(ctx, canvas.width, canvas.height)
       raf = requestAnimationFrame(tick)

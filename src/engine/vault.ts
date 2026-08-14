@@ -3,18 +3,44 @@ const LS_SESSION = 'axiom.session'
 const LS_SPEED = 'axiom.speed'
 const LS_OVERRIDES = 'axiom.overrides'
 
-export const API_BASE = import.meta.env.VITE_API_BASE ?? 'https://openrouter.ai/api/v1'
+export const API_BASE = (import.meta.env.VITE_API_BASE ?? 'https://openrouter.ai/api/v1').replace(/\/$/, '')
 
-export function loadKey(): string | null {
+let stronghold: { writeKey: (key: string) => Promise<void>; readKey: () => Promise<string | null> } | null = null
+
+export async function initStronghold() {
+  if (typeof window === 'undefined') return
+  const tauri = (window as any).__TAURI__
+  if (!tauri) return
+  try {
+    const plugin = await (tauri as any).plugin.stronghold
+    stronghold = {
+      writeKey: async (key: string) => plugin.write('api-key', key),
+      readKey: async () => plugin.read('api-key'),
+    }
+  } catch {
+    stronghold = null
+  }
+}
+
+export async function loadKey(): Promise<string | null> {
+  if (stronghold) return stronghold.readKey()
   return localStorage.getItem(LS_KEY) ?? sessionStorage.getItem(LS_KEY)
 }
 
-export function storeKey(apiKey: string, sessionOnly: boolean) {
+export async function storeKey(apiKey: string, sessionOnly: boolean) {
+  if (stronghold) {
+    await stronghold.writeKey(apiKey)
+    return
+  }
   const storage = sessionOnly ? sessionStorage : localStorage
   storage.setItem(LS_KEY, apiKey)
 }
 
-export function clearKey() {
+export async function clearKey() {
+  if (stronghold) {
+    try { await stronghold.writeKey('') } catch {}
+    return
+  }
   localStorage.removeItem(LS_KEY)
   sessionStorage.removeItem(LS_KEY)
 }
@@ -60,4 +86,24 @@ export function saveSessionOnly(flag: boolean) {
 
 export function loadSessionOnly(): boolean {
   return sessionStorage.getItem(LS_SESSION) === '1'
+}
+
+export async function budgetAvailable(apiKey: string): Promise<{ ok: boolean; label?: string; usage?: number; limit?: number }> {
+  try {
+    const base = API_BASE
+    const res = await fetch(`${base}/key`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(12000),
+    } as any)
+    if (!res.ok) return { ok: true }
+    const data = (await res.json()) as { data?: { usage?: number; limit?: number; is_free_tier?: boolean }; label?: string }
+    const usage = Number(data?.data?.usage ?? 0)
+    const limit = Number(data?.data?.limit ?? 0)
+    if (limit > 0 && usage >= limit - 0.05) {
+      return { ok: false, label: data?.label ?? 'KEY', usage, limit }
+    }
+    return { ok: true, label: data?.label ?? 'KEY', usage, limit }
+  } catch {
+    return { ok: true }
+  }
 }

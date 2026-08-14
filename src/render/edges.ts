@@ -30,7 +30,7 @@ export function drawEdges(
     cx.stroke()
     cx.setLineDash([])
     cx.lineDashOffset = 0
-    if (e.progress > 0 && e.active) {
+    if (e.progress > 0) {
       const t = e.progress
       const px = (1 - t) ** 2 * x1 + 2 * (1 - t) * t * mx + t ** 2 * x2
       const py = (1 - t) ** 2 * y1 + 2 * (1 - t) * t * my + t ** 2 * y2
