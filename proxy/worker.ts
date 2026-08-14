@@ -6,7 +6,7 @@ export interface Env {
 const RATE_LIMIT_WINDOW = 60_000
 const RATE_LIMIT_MAX = 20
 const rateBuckets = new Map<string, { count: number; resetAt: number }>()
-const cleanupInterval = setInterval(() => {
+const _cleanupInterval = setInterval(() => {
   const now = Date.now()
   for (const [key, bucket] of rateBuckets) {
     if (bucket.resetAt < now) rateBuckets.delete(key)
@@ -14,7 +14,7 @@ const cleanupInterval = setInterval(() => {
 }, 10_000)
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext) {
     const url = new URL(request.url)
     if (url.pathname === '/health') {
       return new Response(JSON.stringify({ ok: true }), {

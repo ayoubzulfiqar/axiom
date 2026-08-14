@@ -36,10 +36,10 @@ bus.on((ev: BusEvent) => {
     rebuildRoster()
     useMeshStore.setState({ selectedId: null })
   }
-  if (ev.type === 'agent-start') setAgentState(ev.agent, 'running'), rebuildRoster()
-  if (ev.type === 'agent-done') setAgentState(ev.agent, 'done'), rebuildRoster()
-  if (ev.type === 'fault') setAgentState(ev.agent, 'fault'), rebuildRoster()
-  if (ev.type === 'mission-complete') rebuildRoster()
+  if (ev.type === 'agent-start') { setAgentState(ev.agent, 'running'); rebuildRoster() }
+  if (ev.type === 'agent-done') { setAgentState(ev.agent, 'done'); rebuildRoster() }
+  if (ev.type === 'fault') { setAgentState(ev.agent, 'fault'); rebuildRoster() }
+  if (ev.type === 'mission-complete') { rebuildRoster() }
 })
 
 export function resetMeshStore() {

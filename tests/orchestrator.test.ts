@@ -14,17 +14,6 @@ afterEach(() => {
   abortAll()
 })
 
-function setupEnv() {
-  ;(globalThis as any).location = { origin: 'http://localhost' }
-  const storage: Record<string, string> = {}
-  ;(globalThis as any).localStorage = {
-    getItem: (k: string) => storage[k] ?? null,
-    setItem: (k: string, v: string) => { storage[k] = v },
-    removeItem: (k: string) => { delete storage[k] },
-  }
-  localStorage.setItem('axiom.key', 'sk-test')
-}
-
 describe('bus contract', () => {
   it('emits mission-start with objective', async () => {
     const events: any[] = []
