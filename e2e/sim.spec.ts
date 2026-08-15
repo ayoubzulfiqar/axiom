@@ -35,6 +35,72 @@ test.describe('SIM mode offline flow', () => {
     await expect(page.locator('[data-testid="copy-button"]')).toBeVisible()
 
     await expect(page.locator('[data-testid="telemetry-chip"]')).toBeVisible({ timeout: 10000 })
-    await expect(page.locator('[data-testid="telemetry-chip"]')).toContainText('x /')
+    await expect(page.locator('[data-testid="telemetry-chip"]')).toContainText('max')
+  })
+
+  test('deep-research shape emits convergence and telemetry', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForTimeout(2500)
+    await page.evaluate(() => localStorage.setItem('axiom.key', 'test-key'))
+    await page.reload()
+    await page.waitForTimeout(2000)
+
+    await page.click('[data-testid="run-button"]')
+    await page.waitForTimeout(100)
+    await page.click('[data-testid="objective-input"]')
+    await page.fill('[data-testid="objective-input"]', 'Deep E2E')
+    await page.click('[data-testid="shape-deep-research"]')
+    await page.evaluate(() => {
+      const btn = document.querySelector('[data-testid="objective-submit"]') as HTMLButtonElement | null
+      btn?.click()
+    })
+
+    await expect(page.locator('[data-testid="artifact-modal"]')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('[data-testid="artifact-body"]')).not.toBeEmpty()
+    await expect(page.locator('[data-testid="telemetry-chip"]')).toBeVisible({ timeout: 10000 })
+  })
+
+  test('broad-sweep shape completes with dry-round convergence', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForTimeout(2500)
+    await page.evaluate(() => localStorage.setItem('axiom.key', 'test-key'))
+    await page.reload()
+    await page.waitForTimeout(2000)
+
+    await page.click('[data-testid="run-button"]')
+    await page.waitForTimeout(100)
+    await page.click('[data-testid="objective-input"]')
+    await page.fill('[data-testid="objective-input"]', 'Broad E2E')
+    await page.click('[data-testid="shape-broad-sweep"]')
+    await page.evaluate(() => {
+      const btn = document.querySelector('[data-testid="objective-submit"]') as HTMLButtonElement | null
+      btn?.click()
+    })
+
+    await expect(page.locator('[data-testid="artifact-modal"]')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('[data-testid="artifact-body"]')).not.toBeEmpty()
+    await expect(page.locator('[data-testid="telemetry-chip"]')).toBeVisible({ timeout: 10000 })
+  })
+
+  test('standard shape runs default SIM path', async ({ page }) => {
+    await page.goto('/')
+    await page.waitForTimeout(2500)
+    await page.evaluate(() => localStorage.setItem('axiom.key', 'test-key'))
+    await page.reload()
+    await page.waitForTimeout(2000)
+
+    await page.click('[data-testid="run-button"]')
+    await page.waitForTimeout(100)
+    await page.click('[data-testid="objective-input"]')
+    await page.fill('[data-testid="objective-input"]', 'Standard E2E')
+    await page.click('[data-testid="shape-standard"]')
+    await page.evaluate(() => {
+      const btn = document.querySelector('[data-testid="objective-submit"]') as HTMLButtonElement | null
+      btn?.click()
+    })
+
+    await expect(page.locator('[data-testid="artifact-modal"]')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('[data-testid="artifact-body"]')).not.toBeEmpty()
+    await expect(page.locator('[data-testid="telemetry-chip"]')).toBeVisible({ timeout: 10000 })
   })
 })

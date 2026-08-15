@@ -50,11 +50,16 @@ export function ObjectivePrompt() {
           onKeyDown={(e) => e.key === 'Enter' && handleRun()}
         />
         <div className="flex items-center gap-2">
+          <span className="text-[9px] text-dim tracking-widest mr-1">GRAPH SHAPE</span>
           {Object.values(GRAPH_SHAPES).map((s) => (
             <button
               key={s.id}
               onClick={() => setShape(s.id)}
-              className={`text-[10px] px-2 py-1 rounded border transition ${shape === s.id ? 'border-ink bg-panel' : 'border-line hover:border-faint'}`}
+              className={`text-[10px] px-2 py-1 rounded border transition ${
+                shape === s.id
+                  ? 'border-ink bg-panel shadow-[0_0_0_1px_rgba(255,255,255,0.08)]'
+                  : 'border-line hover:border-faint'
+              }`}
               data-testid={`shape-${s.id}`}
             >
               {s.label}
