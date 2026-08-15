@@ -29,7 +29,7 @@ export const useMissionStore = create<MissionState>(() => ({
 export function bindMissionBus() {
   bus.on((ev: BusEvent) => {
     if (ev.type === 'mission-start') {
-      useMissionStore.setState({ status: 'running', objective: ev.objective, startedAt: Date.now(), fault: null, currentArtifactId: null, verified: null })
+      useMissionStore.setState({ status: 'running', objective: ev.objective, startedAt: Date.now(), fault: null, currentArtifactId: null, verified: null, decisions: [] })
     }
     if (ev.type === 'plan-step') {
       useMissionStore.setState({ step: ev.n, total: ev.total })
