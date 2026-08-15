@@ -57,6 +57,11 @@ export function DetailCard() {
             </div>
           </div>
         )}
+        <div className="mt-2 space-y-1">
+          <div className="text-[10px] font-bold tracking-widest text-dim">COST</div>
+          <div className="text-[10px] font-mono text-ink/80">tokens: -</div>
+          <div className="text-[10px] font-mono text-ink/80">cost: -</div>
+        </div>
       </CardContent>
     </Card>
   )

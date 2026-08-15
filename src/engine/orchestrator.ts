@@ -9,6 +9,8 @@ import { runFinalGate } from './gates'
 import { emitArtifactStored } from './artifacts'
 import { resolvePolicy, getPolicyFor, errorTypeFor } from './policies'
 import { structuredSummaryForRole } from './artifacts'
+import { recordCall, simulateCost } from './cost'
+import { buildContextMessages } from './context'
 
 const artifactStore = new ArtifactStore((globalThis as any).axiomDb ?? new (require('dexie').default)('axiom'))
 
@@ -98,13 +100,16 @@ export async function runMission(objective: string, signal: AbortController): Pr
       if (signal.signal.aborted) throw new Error('ABORTED')
       const orchestrator = getDef('ORCH') ?? getDefs()[0]
       const agentList = getDefs().map((d) => `- ${d.id} (${d.role})`).join('\n')
-      const context = history.length ? `\nPrevious steps:\n${history.map((h) => `- ${h.thought}\n  routes: ${h.routes.join(', ')}\n  artifact: ${h.summary}`).join('\n')}` : ''
+      const context = buildContextMessages(objective, history, 'standard', agentList)
+      if (context.compacted) {
+        bus.emit({ type: 'context-compacted', stepsCompacted: context.stepsCompacted, estTokens: context.estTokens })
+      }
 
       const planStart = Date.now()
       const planText = await planOnce({
         model: orchestrator.model,
-        system: orchestrator.system,
-        user: `Objective: ${objective}\nStep: ${steps + 1} of ${MAX_STEPS}\nAvailable agents:\n${agentList}\n${context}\nRespond only with JSON.`,
+        system: context.messages[0].content,
+        user: context.messages[1].content,
         signal: signal.signal,
         maxTokens: MAX_TOKENS,
       })
@@ -250,6 +255,14 @@ export async function dispatchAgent(
       const text = accumulated || result.text || ''
       setAgentState(task.agent, 'done')
       bus.emit({ type: 'agent-done', agent: task.agent })
+      const usage = (result as any)?.usage as { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined
+      if (usage) {
+        const cost = recordCall(task.agent, def.model, usage)
+        bus.emit({ type: 'cost-updated', nodeId: task.agent, missionCostUsd: cost.missionCostUsd, nodeCostUsd: cost.nodeCostUsd })
+      } else {
+        const cost = simulateCost(task.agent, def.model)
+        bus.emit({ type: 'cost-updated', nodeId: task.agent, missionCostUsd: cost.missionCostUsd, nodeCostUsd: cost.nodeCostUsd })
+      }
       return agentResultToArtifact(missionId, objective, task, text, shardIndex)
     } catch (err: unknown) {
       attempts++

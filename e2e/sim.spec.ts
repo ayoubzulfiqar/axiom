@@ -36,6 +36,9 @@ test.describe('SIM mode offline flow', () => {
 
     await expect(page.locator('[data-testid="telemetry-chip"]')).toBeVisible({ timeout: 10000 })
     await expect(page.locator('[data-testid="telemetry-chip"]')).toContainText('max')
+
+    await expect(page.locator('[data-testid="cost-chip"]')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('[data-testid="cost-chip"]')).toContainText('$')
   })
 
   test('deep-research shape emits convergence and telemetry', async ({ page }) => {

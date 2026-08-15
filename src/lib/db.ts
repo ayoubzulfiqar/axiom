@@ -30,10 +30,20 @@ export interface CheckpointRecord {
   updatedAt: number
 }
 
+export interface ChunkRecord {
+  id?: number
+  missionScope: 'global' | string
+  sourceFile: string
+  text: string
+  embedding: number[]
+  createdAt: number
+}
+
 class AxiomDB extends Dexie {
   missions!: Table<MissionRow>
   artifacts!: Table<ArtifactRecord>
   checkpoints!: Table<CheckpointRecord>
+  chunks!: Table<ChunkRecord>
 
   constructor() {
     super('axiom')
@@ -41,6 +51,7 @@ class AxiomDB extends Dexie {
       missions: '++id, endedAt',
       artifacts: 'id, missionId, nodeId, kind, createdAt',
       checkpoints: 'missionId, status, updatedAt',
+      chunks: '++id, missionScope, sourceFile, createdAt',
     })
   }
 }

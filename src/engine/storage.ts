@@ -1,5 +1,6 @@
 import Dexie from 'dexie'
 import type { ArtifactRecord, CheckpointRecord } from './types'
+import type { ChunkRecord } from '../lib/db'
 import bus from './bus'
 
 export class ArtifactStore {
@@ -53,3 +54,29 @@ export class CheckpointStore {
     await this.db.table<CheckpointRecord>('checkpoints').delete(missionId)
   }
 }
+
+export class ChunkStore {
+  private db: Dexie
+
+  constructor(db: Dexie) {
+    this.db = db
+  }
+
+  async put(record: ChunkRecord): Promise<void> {
+    const payload = { ...record, id: record.id }
+    await this.db.table('chunks').put(payload)
+  }
+
+  async byScope(missionScope: 'global' | string): Promise<ChunkRecord[]> {
+    return this.db.table<ChunkRecord>('chunks').where('missionScope').equals(missionScope).toArray()
+  }
+
+  async clear(missionScope?: 'global' | string): Promise<void> {
+    if (typeof missionScope === 'string') {
+      await this.db.table<ChunkRecord>('chunks').where('missionScope').equals(missionScope).delete()
+    } else {
+      await this.db.table<ChunkRecord>('chunks').clear()
+    }
+  }
+}
+

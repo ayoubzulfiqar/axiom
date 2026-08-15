@@ -4,6 +4,7 @@ import { useMissionStore } from '../../stores/mission'
 import { useSettingsStore } from '../../stores/settings'
 import bus from '../../engine/bus'
 import { loadCheckpoint } from '../../engine/checkpoints'
+import { getMissionCost } from '../../engine/cost'
 import { useEffect, useState } from 'react'
 
 export function Header() {
@@ -20,6 +21,7 @@ export function Header() {
   const approvalRequired = useSettingsStore((s: { approvalRequired: boolean }) => s.approvalRequired)
   const toggleApproval = () => useSettingsStore.getState().setApprovalRequired(!approvalRequired)
   const [gating, setGating] = useState(false)
+  const [missionCost, setMissionCost] = useState(0)
   const resume = () => {
     const cp = loadCheckpoint('current')
     if (cp) {
@@ -32,6 +34,7 @@ export function Header() {
     const unsub = bus.on((ev) => {
       if (ev.type === 'gate-start') setGating(true)
       if (ev.type === 'gate-pass' || ev.type === 'gate-fail') setGating(false)
+      if (ev.type === 'cost-updated') setMissionCost(getMissionCost().totalCostUsd)
     })
     return () => { unsub() }
   }, [])
@@ -53,11 +56,16 @@ export function Header() {
         </label>
         {status === 'paused' && <Button data-testid="resume-button" variant="outline" size="sm" className="border-line text-ink" onClick={resume}>RESUME</Button>}
         <Button data-testid="run-button" variant="outline" size="sm" className="border-line text-ink" onClick={() => setObjectiveOpen(true)}>RUN</Button>
-        {status === 'running' || status === 'complete' ? (
+        {(status === 'running' || status === 'complete') && (
           <span className="text-[10px] font-mono text-dim" data-testid="telemetry-chip">
             ⚡ {(() => { const t = useMissionStore.getState().telemetry; const actual = t.actualSpeedup != null ? `${t.actualSpeedup.toFixed(1)}x` : '-'; const theoretical = t.theoreticalSpeedup != null ? `${t.theoreticalSpeedup.toFixed(1)}x` : '-'; return `${actual} / ${theoretical} max`; })()}
           </span>
-        ) : null}
+        )}
+        {(status === 'running' || status === 'complete') && (
+          <span className="text-[10px] font-mono text-dim" data-testid="cost-chip">
+            $ {missionCost.toFixed(4)}
+          </span>
+        )}
         <Button variant="ghost" size="sm" className="text-dim" onClick={() => setRosterOpen(true)}>ROSTER</Button>
         <Button variant="ghost" size="sm" className="text-dim" onClick={() => setVaultOpen(true)}>VAULT</Button>
       </div>

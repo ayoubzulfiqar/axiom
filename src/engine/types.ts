@@ -63,6 +63,10 @@ export type BusEvent =
   | { type: 'checkpoint-updated'; missionId: string; step: number; status: 'running' | 'paused' | 'awaiting-approval' | 'interrupted' }
   | { type: 'resume-available'; missionId: string; step: number }
   | { type: 'telemetry-updated'; serialMs: number; parallelMs: number; totalMs: number; maxConcurrentWorkers: number }
+  | { type: 'cost-updated'; nodeId: string; missionCostUsd: number; nodeCostUsd: number }
+  | { type: 'context-compacted'; stepsCompacted: number; estTokens: number }
+  | { type: 'rag-ingest-progress'; file: string; stage: string; pct: number }
+  | { type: 'rag-ready'; chunks: number }
 
 export interface Plan {
   thought: string

@@ -32,6 +32,19 @@ export const tools = {
       }
     },
   },
+  knowledge_search: {
+    description: 'Search local RAG knowledge base with cosine similarity.',
+    inputSchema: z.object({ query: z.string().max(500), topK: z.number().max(10).optional() }),
+    execute: async ({ query, topK }: { query: string; topK?: number }) => {
+      try {
+        const { searchKnowledge } = await import('../engine/client')
+        const results = await searchKnowledge(query, topK ?? 5)
+        return { results }
+      } catch (e) {
+        return { error: e instanceof Error ? e.message : 'knowledge search failed' }
+      }
+    },
+  },
 }
 
 export type ToolName = keyof typeof tools

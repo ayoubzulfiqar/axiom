@@ -3,6 +3,7 @@ import { getDefs, setAgentState, initDefs } from './agents'
 import { abortAll } from './orchestrator'
 import { runFinalGate } from './gates'
 import { emitPolicyApplied } from './policies'
+import { simulateCost } from './cost'
 
 export type Speed = 1 | 2 | 4
 
@@ -81,6 +82,8 @@ export function runSimulation(objective: string, shape: string = 'standard') {
         bus.emit({ type: 'agent-done', agent: critic.id })
         const verdict = 'pass'
         emitPolicyApplied(critic.id, 'escalate', `adversarial-${verdict}`)
+        const cost = simulateCost(critic.id, orchestrator.model)
+        bus.emit({ type: 'cost-updated', nodeId: critic.id, missionCostUsd: cost.missionCostUsd, nodeCostUsd: cost.nodeCostUsd })
         const final = `# Mission Complete\n\nObjective: ${objective}\n\nAdversarial review complete.\n\n## Verdict\n\n${verdict.toUpperCase()}\n\n## Notes\n\nTight generator/verifier cycle completed in SIM.`
         bus.emit({ type: 'artifact-stored', id: 'sim-artifact-1', agent: critic.id, kind: 'final', summary: 'Adversarial review artifact' })
         bus.emit({ type: 'approval-requested', missionId: 'sim', artifactId: 'sim-artifact-1', summary: 'Adversarial review artifact' })
@@ -132,6 +135,8 @@ export function runSimulation(objective: string, shape: string = 'standard') {
           bus.emit({ type: 'approval-resolved', decision: 'approved' })
           bus.emit({ type: 'mission-complete', final, artifactId: 'sim-artifact-1', verified: gate.verdict === 'pass' })
         })
+        const cost = simulateCost(analyzer.id, orchestrator.model)
+        bus.emit({ type: 'cost-updated', nodeId: analyzer.id, missionCostUsd: cost.missionCostUsd, nodeCostUsd: cost.nodeCostUsd })
         emitPolicyApplied('RESEARCHER', 'skip', 'simulated policy skip')
         active = false
       }, t(2800))
@@ -179,6 +184,8 @@ export function runSimulation(objective: string, shape: string = 'standard') {
           bus.emit({ type: 'approval-resolved', decision: 'approved' })
           bus.emit({ type: 'mission-complete', final, artifactId: 'sim-artifact-1', verified: gate.verdict === 'pass' })
         })
+        const cost = simulateCost(analyzer.id, orchestrator.model)
+        bus.emit({ type: 'cost-updated', nodeId: analyzer.id, missionCostUsd: cost.missionCostUsd, nodeCostUsd: cost.nodeCostUsd })
         emitPolicyApplied('RESEARCHER', 'skip', 'simulated policy skip')
         active = false
       }, t(2800))
@@ -237,6 +244,8 @@ export function runSimulation(objective: string, shape: string = 'standard') {
         bus.emit({ type: 'approval-resolved', decision: 'approved' })
         bus.emit({ type: 'mission-complete', final, artifactId: 'sim-artifact-1', verified: gate.verdict === 'pass' })
       })
+      const cost = simulateCost(writer.id, orchestrator.model)
+      bus.emit({ type: 'cost-updated', nodeId: writer.id, missionCostUsd: cost.missionCostUsd, nodeCostUsd: cost.nodeCostUsd })
       emitPolicyApplied('RESEARCHER', 'skip', 'simulated policy skip')
       bus.emit({ type: 'convergence', reason: 'dry-rounds', rounds: 2 })
       active = false
