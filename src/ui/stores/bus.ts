@@ -26,6 +26,8 @@ export interface BusUIState {
   setArtifactOpen: (v: boolean) => void
   simMode: boolean
   setSimMode: (v: boolean) => void
+  ragOpen: boolean
+  setRagOpen: (v: boolean) => void
 }
 
 export const useBus = create<BusUIState>((set) => ({
@@ -52,6 +54,8 @@ export const useBus = create<BusUIState>((set) => ({
   setArtifactOpen: (v) => set({ artifactOpen: v }),
   simMode: false,
   setSimMode: (v) => set({ simMode: v }),
+  ragOpen: false,
+  setRagOpen: (v) => set({ ragOpen: v }),
 }))
 
 bus.on((ev: BusEvent) => {
