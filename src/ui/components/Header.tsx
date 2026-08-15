@@ -1,6 +1,7 @@
 import { useBus } from '../stores/bus'
 import { Button } from '../components/ui/button'
 import { useMissionStore } from '../../stores/mission'
+import { useSettingsStore } from '../../stores/settings'
 import bus from '../../engine/bus'
 import { loadCheckpoint } from '../../engine/checkpoints'
 import { useState, useEffect } from 'react'
@@ -16,6 +17,8 @@ export function Header() {
     if (next) useBus.getState().setObjectiveOpen(true)
   }
   const status = useMissionStore((s: { status: string }) => s.status)
+  const approvalRequired = useSettingsStore((s: { approvalRequired: boolean }) => s.approvalRequired)
+  const toggleApproval = () => useSettingsStore.getState().setApprovalRequired(!approvalRequired)
   const [gating, setGating] = useState(false)
   const resume = () => {
     const cp = loadCheckpoint('current')
@@ -43,6 +46,10 @@ export function Header() {
         <label className="flex items-center gap-2 text-[10px] text-dim">
           <input type="checkbox" data-testid="sim-toggle" checked={simEnabled} onChange={toggleSim} />
           SIM MODE
+        </label>
+        <label className="flex items-center gap-2 text-[10px] text-dim">
+          <input type="checkbox" data-testid="approval-toggle" checked={approvalRequired} onChange={toggleApproval} />
+          APPROVAL
         </label>
         {status === 'paused' && <Button data-testid="resume-button" variant="outline" size="sm" className="border-line text-ink" onClick={resume}>RESUME</Button>}
         <Button data-testid="run-button" variant="outline" size="sm" className="border-line text-ink" onClick={() => setObjectiveOpen(true)}>RUN</Button>
