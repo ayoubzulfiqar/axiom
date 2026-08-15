@@ -2,6 +2,14 @@
 
 AXIOM is a monochrome, browser-native orchestration console that turns an OpenRouter API key into a live agent mesh. The user enters a mission objective, an LLM orchestrator plans and dispatches tasks to specialized agents in parallel, and the whole execution is visualized in real time on a Canvas 2D scene with streaming tokens, event feed, and a markdown artifact modal.
 
+## Phase 2 Addendum
+
+- Anti-Bias Gate: Fresh Context critic + Jury Mode with majority vote
+- Isolated draft-shard artifacts + deterministic merge node
+- Amdahl telemetry + HUD chip
+- Graph Shapes: Standard, Deep Research, Adversarial Review, Broad Sweep
+- Expanded tests/docs + Playwright per-shape e2e
+
 ## Stack
 
 - Vite + React 19 + TypeScript 7 (strict)

@@ -3,50 +3,96 @@
 ## What was built
 AXIOM is a production-grade agentic AI orchestration console. The user enters a mission objective, an LLM orchestrator plans and dispatches tasks to a mesh of specialized agents in parallel, and the entire execution is visualized live on a Canvas 2D scene with streaming tokens, an event feed, and a markdown artifact modal.
 
+## Phase 2 Addendum — Execution Physics
+The graph was extended with anti-bias gates, isolated shard artifacts, deterministic merge, Amdahl telemetry, graph shapes, and expanded tests/docs.
+
+### Anti-Bias Gate (Task 10)
+- Fresh Context: `runFreshCritic()` builds an isolated critic prompt with system + artifact-only context. It never sees generator chain-of-thought or draft history.
+- Jury Mode: `runFinalGate()` supports `options.juryMode`; when enabled it spawns 3 independent critics across model families, emits `jury-vote` events, and applies majority rule (`>=2` passes).
+- Deterministic critic for offline SIM; no network dependency.
+
+### Isolated Shards + Deterministic Merge (Task 11)
+- `ArtifactRecord.kind` supports `draft-shard`.
+- Writer shards emit `draft-shard` artifacts that never leak full transcripts into planning context.
+- `mergeShards()` in `orchestrator.ts` deterministically merges writer shards into a single `final` artifact.
+- Orchestrator activates merge when `plan.merge` is true and multiple writer shards are present.
+
+### Amdahl Telemetry (Task 12)
+- `src/engine/telemetry.ts` exposes `calculateTelemetry()`.
+- Orchestrator emits `telemetry-updated` with `serialMs`, `parallelMs`, `totalMs`, `maxConcurrentWorkers`.
+- Header renders a telemetry HUD chip: `⚡ actual / theoretical max`.
+- Merge time is counted as serial work for realistic speedup math.
+
+### Graph Shapes (Task 13)
+- `GRAPH_SHAPES` config in `simulator.ts`: `standard`, `deep-research`, `adversarial`, `broad-sweep`.
+- Shape selector in `ObjectivePrompt.tsx` with active-state styling.
+- SIM paths for each shape emit distinct events: convergence, policy-applied, approval-requested, mission-complete.
+
+### Expanded Tests/Docs (Task 14)
+- Unit tests: `tests/gates.test.ts`, `tests/telemetry.test.ts`, `tests/merge.test.ts`.
+- Playwright e2e: per-shape assertions for artifact modal, telemetry chip, and adversarial flow.
+- README updated with Phase 2 sections.
+
+### Orchestrator Merge Activation (Task 2 refinement)
+- `src/engine/orchestrator.ts` now tracks dispatch results with agent identity.
+- Writer-role shards are detected and merged via `mergeShards()`.
+
+### UI Polish
+- `ObjectivePrompt.tsx` graph shape selector with `GRAPH SHAPE` label and stronger active-state styling.
+- `Header.tsx` telemetry chip text normalized to `actual / theoretical max`.
+
 ## Architecture
 Three decoupled layers with a typed event bus as the only seam:
 
 ### Engine (`src/engine/`)
 Pure TypeScript, zero React, zero DOM. Fully unit-testable.
-- `types.ts` — AgentDef, BusEvent union, MissionRecord, Plan schema types
+- `types.ts` — AgentDef, BusEvent union, MissionRecord, Plan schema types, GraphShape config
 - `bus.ts` — typed emit/on/off event emitter
 - `vault.ts` — BYOK key storage (local/session), masking, persistence helpers
 - `openrouter.ts` — API base URL, auth header factory, raw fetch helpers
 - `protocol.ts` — Zod schemas for orchestrator JSON + repair-and-retry parser
 - `agents.ts` — AGENT_DEFS registry + dynamic spawn
-- `orchestrator.ts` — plan loop, parallel dispatch, guardrails, abort
-- `simulator.ts` — SIM mode: scripted mission via identical bus events
+- `artifacts.ts` — artifact validation, structured summary extraction, artifact-stored event helper
+- `gates.ts` — `final-gate` deterministic checks, fresh-context critic, jury mode, verdict emission
+- `policies.ts` — per-role failure policy resolution and `policy-applied` bus emission
+- `checkpoints.ts` — durable mission checkpoint store with localStorage + memory fallback
+- `storage.ts` — Dexie-backed `ArtifactStore` and `CheckpointStore`
+- `orchestrator.ts` — plan loop, parallel dispatch, artifact persistence, gate integration, convergence, budgets, deterministic merge
+- `simulator.ts` — offline SIM mode exercising artifacts, gates, policies, convergence, approval, graph shapes
 - `graph.ts` — node/edge data model + physics step
+- `telemetry.ts` — Amdahl speedup calculation, telemetry-updated bus emission
 
 ### Render (`src/render/`)
 Canvas 2D scene, zero React imports, owns its rAF loop.
 - `scene.ts` — DPR handling, grid/dust/vignette, camera transforms
-- `nodes.ts` — node birth, halo, selection brackets, radar sweep, done glyph
-- `edges.ts` — draw-in edges, message particles with trails, delivery flash
+- `nodes.ts` — node birth, halo, selection brackets, radar sweep, done glyph, artifact flash
+- `edges.ts` — draw-in edges, message particles with trails, delivery flash, used/unused alpha
 - `input.ts` — drag node, pan, zoom-to-cursor, click-select
 
 ### UI (`src/ui/`)
 React 19 components. Never call APIs directly; consume stores + bus.
 - `App.tsx` — layout shell, overlay mounts, motion wrappers
 - `components/BootOverlay.tsx` — GSAP boot timeline
-- `components/Header.tsx` — brand, status, metrics, controls
+- `components/Header.tsx` — brand, status, metrics, controls, telemetry HUD chip, resume button
 - `components/Roster.tsx` — agent list / mobile Sheet
-- `components/Feed.tsx` — throttled event stream
+- `components/Feed.tsx` — throttled event stream with gate/policy/convergence lines
 - `components/Stage.tsx` — canvas host, rAF loop, bus bindings
-- `components/DetailCard.tsx` — selected node inspector + model picker
+- `components/DetailCard.tsx` — selected node inspector + model picker + tool list + contract section
 - `components/VaultDialog.tsx` — BYOK key connect/verify/clear
-- `components/ArtifactModal.tsx` — react-markdown + COPY button
+- `components/ArtifactModal.tsx` — react-markdown + COPY + verification badge
 - `components/HistoryDrawer.tsx` — Dexie mission log
-- `components/ObjectivePrompt.tsx` — mission input dialog
+- `components/ObjectivePrompt.tsx` — mission input dialog with graph shape selector
+- `components/GraphDrawer.tsx` — inspectable routing decisions drawer
+- `components/ApprovalDialog.tsx` — human approval / escalation dialog
 - `hooks/` — useBus, useKeyInfo, useModels
 
 ### Stores
 Zustand stores mirror engine state for the UI.
-- `src/stores/mission.ts` — status, objective, step/total, fault
-- `src/stores/mesh.ts` — roster mirror, agent states, model overrides
-- `src/stores/vault.ts` — connected, maskedKey, balance
-- `src/stores/feed.ts` — 90-entry log with ~80ms throttled flush
-- `src/stores/settings.ts` — speed 1|2|4, reduced motion
+- `src/stores/mission.ts` — status, objective, step/total, fault, current artifact id, verified flag, telemetry, decisions
+- `src/stores/mesh.ts` — roster mirror, agent states, model overrides, tool list, rebuildRoster on mission-start
+- `src/stores/vault.ts` — connected, maskedKey, balance, async bus.on initialization
+- `src/stores/feed.ts` — 90-entry log with ~80ms throttled flush, gate/policy/convergence entries
+- `src/stores/settings.ts` — speed 1|2|4, reduced motion, approvalRequired
 - `src/ui/stores/bus.ts` — UI overlay state + bus→Zustand bridge
 
 ## Key features implemented
@@ -67,22 +113,24 @@ Zustand stores mirror engine state for the UI.
 ## Build & test status
 - TypeScript strict: `npx tsc -b` exits 0 with zero errors
 - Vite build: `node node_modules/vite/bin/vite.js build` succeeds, outputs `dist/`
-- Vitest: `tests/protocol.test.ts` — 6/6 tests pass
+- Vitest: `npx vitest run` passes
 - Oxlint: 0 errors, 0 warnings after final fixes
-- Package manager issue in this shell: `pnpm` binary path is broken, but `npx pnpm@latest` and direct `node node_modules/...` invocations work for install/build/test
+- Playwright: `npx playwright test e2e/sim.spec.ts --project=chromium` passes
+- Package manager note: `pnpm` binary path can be broken in some shells; `npx pnpm@latest` and direct `node node_modules/...` invocations work for install/build/test
 
 ## Files delivered
-- `src/engine/*.ts` — 9 files
+- `src/engine/*.ts` — 11 files
 - `src/render/*.ts` — 4 files
 - `src/stores/*.ts` — 5 files
 - `src/ui/**/*.tsx` — 15 files
 - `src/lib/db.ts` — Dexie database
-- `tests/protocol.test.ts` — protocol parsing tests
+- `tests/*.test.ts` — 9 test files
+- `e2e/sim.spec.ts` — Playwright SIM e2e
 - `package.json`, `pnpm-lock.yaml` — dependencies
 - `vite.config.ts`, `vitest.config.ts`, `tsconfig*.json` — configs
 - `src/index.css` — Tailwind v4 theme tokens
 - `README.md` — full project documentation
 
 ## Git
-- Committed as: feat: implement AXIOM agentic orchestration console
+- Latest commit: feat: polish graph shape selector + telemetry chip + per-shape e2e
 - Pushed to origin/main
