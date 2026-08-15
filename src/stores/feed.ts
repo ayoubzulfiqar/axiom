@@ -8,6 +8,7 @@ export interface FeedEntry {
   text: string
   sys?: boolean
   time: number
+  meta?: Record<string, string>
 }
 
 const MAX_ENTRIES = 90
@@ -82,6 +83,37 @@ export function bindFeedBus() {
     }
     if (ev.type === 'mission-complete') {
       pending.push({ id: ++idCounter, tag: 'SYS', text: 'Mission complete.', sys: true, time: Date.now() })
+      scheduleFlush()
+      return
+    }
+    if (ev.type === 'artifact-stored') {
+      pending.push({ id: ++idCounter, tag: 'ARTIFACT', text: `${ev.kind} ← ${ev.agent}: ${ev.summary}`, time: Date.now(), meta: { artifactId: ev.id } })
+      scheduleFlush()
+      return
+    }
+    if (ev.type === 'gate-start' || ev.type === 'gate-pass' || ev.type === 'gate-fail') {
+      const tag = ev.type === 'gate-start' ? 'GATE' : ev.type === 'gate-pass' ? 'PASS' : 'FAIL'
+      pending.push({ id: ++idCounter, tag, text: `${ev.gate}: ${ev.detail ?? ''}`, time: Date.now() })
+      scheduleFlush()
+      return
+    }
+    if (ev.type === 'policy-applied') {
+      pending.push({ id: ++idCounter, tag: 'POLICY', text: `${ev.agent} → ${ev.policy}: ${ev.detail}`, time: Date.now() })
+      scheduleFlush()
+      return
+    }
+    if (ev.type === 'convergence') {
+      pending.push({ id: ++idCounter, tag: 'CONV', text: `Convergence (${ev.reason}) after ${ev.rounds} rounds`, time: Date.now() })
+      scheduleFlush()
+      return
+    }
+    if (ev.type === 'approval-requested') {
+      pending.push({ id: ++idCounter, tag: 'APPR', text: `Approval requested: ${ev.summary}`, time: Date.now() })
+      scheduleFlush()
+      return
+    }
+    if (ev.type === 'checkpoint-updated') {
+      pending.push({ id: ++idCounter, tag: 'CHK', text: `Checkpoint step ${ev.step} (${ev.status})`, time: Date.now() })
       scheduleFlush()
       return
     }
