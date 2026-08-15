@@ -8,6 +8,9 @@ import { VaultDialog } from './components/VaultDialog'
 import { ArtifactModal } from './components/ArtifactModal'
 import { HistoryDrawer } from './components/HistoryDrawer'
 import { ObjectivePrompt } from './components/ObjectivePrompt'
+import { Header } from './components/Header'
+import { GraphDrawer } from './components/GraphDrawer'
+import { ApprovalDialog } from './components/ApprovalDialog'
 import { useBus } from './stores/bus'
 import '../index.css'
 
@@ -19,15 +22,20 @@ export default function App() {
       {!booted && <BootOverlay />}
       {booted && (
         <div className="flex-1 flex flex-col min-w-0">
-          <Roster />
+          <Header />
           <div className="flex-1 flex flex-col min-w-0">
-            <Feed />
-            <Stage />
-            <DetailCard />
+            <Roster />
+            <div className="flex-1 flex flex-col min-w-0">
+              <Feed />
+              <Stage />
+              <DetailCard />
+            </div>
           </div>
           <VaultDialog />
           <HistoryDrawer />
           <ObjectivePrompt />
+          <GraphDrawer />
+          <ApprovalDialog />
           <AnimatePresence>
             <ArtifactModal />
           </AnimatePresence>
