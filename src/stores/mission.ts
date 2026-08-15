@@ -12,6 +12,7 @@ export interface MissionState {
   currentArtifactId: string | null
   verified: boolean | null
   decisions: Array<{ step: number; thought: string; routes: string[] }>
+  telemetry: { actualSpeedup: number | null; theoreticalSpeedup: number | null; serialMs: number; parallelMs: number; totalMs: number }
 }
 
 export const useMissionStore = create<MissionState>(() => ({
@@ -24,6 +25,7 @@ export const useMissionStore = create<MissionState>(() => ({
   currentArtifactId: null,
   verified: null,
   decisions: [],
+  telemetry: { actualSpeedup: null, theoreticalSpeedup: null, serialMs: 0, parallelMs: 0, totalMs: 0 },
 }))
 
 export function bindMissionBus() {
@@ -42,6 +44,18 @@ export function bindMissionBus() {
     }
     if (ev.type === 'approval-requested') {
       useMissionStore.setState({ status: 'awaiting-approval' })
+    }
+    if (ev.type === 'telemetry-updated') {
+      const { serialMs, parallelMs, totalMs, maxConcurrentWorkers } = ev
+      useMissionStore.setState({
+        telemetry: {
+          actualSpeedup: totalMs > 0 ? Number(((serialMs + parallelMs) / totalMs).toFixed(2)) : null,
+          theoreticalSpeedup: totalMs > 0 ? Number((1 / ((1 - Math.max(0, Math.min(1, parallelMs / totalMs))) + Math.max(0, Math.min(1, parallelMs / totalMs)) / Math.max(1, maxConcurrentWorkers))).toFixed(2)) : null,
+          serialMs,
+          parallelMs,
+          totalMs,
+        },
+      })
     }
   })
 }

@@ -62,6 +62,7 @@ export type BusEvent =
   | { type: 'approval-resolved'; decision: 'approved' | 'rejected'; feedback?: string }
   | { type: 'checkpoint-updated'; missionId: string; step: number; status: 'running' | 'paused' | 'awaiting-approval' | 'interrupted' }
   | { type: 'resume-available'; missionId: string; step: number }
+  | { type: 'telemetry-updated'; serialMs: number; parallelMs: number; totalMs: number; maxConcurrentWorkers: number }
 
 export interface Plan {
   thought: string

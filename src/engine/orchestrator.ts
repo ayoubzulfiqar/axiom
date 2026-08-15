@@ -80,6 +80,8 @@ export async function runMission(objective: string, signal: AbortController): Pr
   running.add(signal)
   bus.emit({ type: 'mission-start', objective })
   const history: { thought: string; routes: string[]; artifactId?: string; summary: string }[] = []
+  let serialMs = 0
+  let parallelMs = 0
   try {
     await upsertCheckpoint({
       missionId,
@@ -97,6 +99,8 @@ export async function runMission(objective: string, signal: AbortController): Pr
       const orchestrator = getDef('ORCH') ?? getDefs()[0]
       const agentList = getDefs().map((d) => `- ${d.id} (${d.role})`).join('\n')
       const context = history.length ? `\nPrevious steps:\n${history.map((h) => `- ${h.thought}\n  routes: ${h.routes.join(', ')}\n  artifact: ${h.summary}`).join('\n')}` : ''
+
+      const planStart = Date.now()
       const planText = await planOnce({
         model: orchestrator.model,
         system: orchestrator.system,
@@ -120,6 +124,7 @@ export async function runMission(objective: string, signal: AbortController): Pr
           throw new Error(`PLAN_PARSE_FAIL: ${parsed2.error}`)
         }
         const plan = parsed2.plan
+        serialMs += Date.now() - planStart
         bus.emit({ type: 'plan-step', n: steps + 1, total: MAX_STEPS, thought: plan.thought, decision: { routes: plan.dispatch.map((d) => d.agent) } })
         if (plan.final) {
           const artifact = await createArtifactRecord(missionId, 'ORCH', 'final', plan.final, plan.final)
@@ -132,18 +137,21 @@ export async function runMission(objective: string, signal: AbortController): Pr
           return plan.final
         }
         if (plan.dispatch.length === 0) continue
+        const dispatchStart = Date.now()
         const results = await Promise.allSettled(
           plan.dispatch.map((d) => dispatchAgent(objective, missionId, d, signal).then((r) => {
             latencyTimestamps.set(d.agent, Date.now())
             return r
           }))
         )
+        parallelMs += Date.now() - dispatchStart
         const artifacts = results.filter((r): r is PromiseFulfilledResult<{ id: string; summary: string; content: string }> => r.status === 'fulfilled').map((r) => r.value)
         history.push({ thought: plan.thought, routes: plan.dispatch.map((d) => d.agent), artifactId: artifacts[0]?.id, summary: artifacts[0]?.summary ?? '' })
         continue
       }
 
       const plan = parsed.plan
+      serialMs += Date.now() - planStart
       bus.emit({ type: 'plan-step', n: steps + 1, total: MAX_STEPS, thought: plan.thought, decision: { routes: plan.dispatch.map((d) => d.agent) } })
       if (plan.final) {
         const artifact = await createArtifactRecord(missionId, 'ORCH', 'final', plan.final, plan.final)
@@ -156,23 +164,29 @@ export async function runMission(objective: string, signal: AbortController): Pr
         return plan.final
       }
       if (plan.dispatch.length === 0) continue
+      const dispatchStart = Date.now()
       const results = await Promise.allSettled(
         plan.dispatch.map((d, idx) => dispatchAgent(objective, missionId, d, signal, getDef(d.agent)?.role === 'writer' ? idx : undefined).then((r) => {
           latencyTimestamps.set(d.agent, Date.now())
           return r
         }))
       )
+      parallelMs += Date.now() - dispatchStart
       const artifacts = results.filter((r): r is PromiseFulfilledResult<{ id: string; summary: string; content: string }> => r.status === 'fulfilled').map((r) => r.value)
       let merged = artifacts[0]
       if (plan.merge && artifacts.length > 1) {
         const writerShards = artifacts.filter((_, i) => getDef(plan.dispatch[i]?.agent ?? '')?.role === 'writer')
         if (writerShards.length > 1) {
+          const mergeStart = Date.now()
           const mergedArtifact = mergeShards(writerShards.map((a, i) => ({ ...a, shardIndex: i })))
+          serialMs += Date.now() - mergeStart
           merged = { id: mergedArtifact.id, summary: mergedArtifact.summary, content: mergedArtifact.content }
         }
       }
       history.push({ thought: plan.thought, routes: plan.dispatch.map((d) => d.agent), artifactId: merged?.id, summary: merged?.summary ?? '' })
     }
+    const totalMs = serialMs + parallelMs
+    bus.emit({ type: 'telemetry-updated', serialMs, parallelMs, totalMs, maxConcurrentWorkers: Math.max(1, getDefs().length) })
     const fallback = history.length ? history[history.length - 1].summary : objective
     bus.emit({ type: 'mission-complete', final: fallback })
     return fallback

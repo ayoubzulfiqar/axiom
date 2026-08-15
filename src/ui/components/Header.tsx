@@ -53,6 +53,11 @@ export function Header() {
         </label>
         {status === 'paused' && <Button data-testid="resume-button" variant="outline" size="sm" className="border-line text-ink" onClick={resume}>RESUME</Button>}
         <Button data-testid="run-button" variant="outline" size="sm" className="border-line text-ink" onClick={() => setObjectiveOpen(true)}>RUN</Button>
+        {status === 'running' || status === 'complete' ? (
+          <span className="text-[10px] font-mono text-dim" data-testid="telemetry-chip">
+            ⚡ {(() => { const t = useMissionStore.getState().telemetry; const actual = t.actualSpeedup != null ? t.actualSpeedup.toFixed(1) : '-'; const theoretical = t.theoreticalSpeedup != null ? t.theoreticalSpeedup.toFixed(1) : '-'; return `${actual}x / ${theoretical}x max`; })()}
+          </span>
+        ) : null}
         <Button variant="ghost" size="sm" className="text-dim" onClick={() => setRosterOpen(true)}>ROSTER</Button>
         <Button variant="ghost" size="sm" className="text-dim" onClick={() => setVaultOpen(true)}>VAULT</Button>
       </div>
