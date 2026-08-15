@@ -5,11 +5,15 @@ export function drawEdges(
   cx: CanvasRenderingContext2D,
   g: Graph,
   s: SceneState,
-  time: number
+  time: number,
+  usedEdgeIds?: Set<string>,
+  usedAlpha = 0.35,
+  unusedAlpha = 0.08
 ) {
   const w = s.width / s.dpr
   const h = s.height / s.dpr
-  for (const e of g.edges) {
+  for (let i = 0; i < g.edges.length; i++) {
+    const e = g.edges[i]
     const a = g.nodes.get(e.from)
     const b = g.nodes.get(e.to)
     if (!a || !b) continue
@@ -19,7 +23,9 @@ export function drawEdges(
     const y2 = b.y * h
     const mx = (x1 + x2) / 2
     const my = (y1 + y2) / 2 - 40
-    const alpha = Math.min(e.progress, 1) * 0.35
+    const base = Math.min(e.progress, 1)
+    const used = usedEdgeIds ? usedEdgeIds.has(`${e.from}->${e.to}`) : true
+    const alpha = base * (used ? usedAlpha : unusedAlpha)
     cx.strokeStyle = `rgb(255 255 255 / ${alpha})`
     cx.lineWidth = 1
     cx.setLineDash([4, 6])

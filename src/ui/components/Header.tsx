@@ -3,7 +3,7 @@ import { Button } from '../components/ui/button'
 import { useMissionStore } from '../../stores/mission'
 import bus from '../../engine/bus'
 import { loadCheckpoint } from '../../engine/checkpoints'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export function Header() {
   const setRosterOpen = useBus((s: { setRosterOpen: (v: boolean) => void }) => s.setRosterOpen)
@@ -16,6 +16,7 @@ export function Header() {
     if (next) useBus.getState().setObjectiveOpen(true)
   }
   const status = useMissionStore((s: { status: string }) => s.status)
+  const [gating, setGating] = useState(false)
   const resume = () => {
     const cp = loadCheckpoint('current')
     if (cp) {
@@ -24,8 +25,16 @@ export function Header() {
     }
   }
 
+  useEffect(() => {
+    const unsub = bus.on((ev) => {
+      if (ev.type === 'gate-start') setGating(true)
+      if (ev.type === 'gate-pass' || ev.type === 'gate-fail') setGating(false)
+    })
+    return () => { unsub() }
+  }, [])
+
   return (
-    <header className="h-12 border-b border-line bg-panel/40 flex items-center px-4 justify-between">
+    <header className={`h-12 border-b border-line bg-panel/40 flex items-center px-4 justify-between ${gating ? 'animate-pulse' : ''}`}>
       <div className="flex items-center gap-3">
         <div className="text-xs font-bold tracking-widest">AXIOM</div>
         <div className="text-[10px] text-dim font-mono">AGENTIC ORCHESTRATION CONSOLE</div>

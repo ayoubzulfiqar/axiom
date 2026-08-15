@@ -3,6 +3,8 @@ import { useMeshStore } from '../../stores/mesh'
 import { useVaultStore } from '../../stores/vault'
 import { Button } from '../components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '../components/ui/sheet'
+import { useEffect, useState } from 'react'
+import bus from '../../engine/bus'
 
 export function Roster() {
   const open = useBus((s: { rosterOpen: boolean }) => s.rosterOpen)
@@ -10,6 +12,17 @@ export function Roster() {
   const roster = useMeshStore((s: { roster: Record<string, { id: string; label: string; state: string; role: string; model: string }> }) => s.roster)
   const selectedId = useMeshStore((s: { selectedId: string | null }) => s.selectedId)
   const balance = useVaultStore((s: { balance: { usage: number; limit: number } | null }) => s.balance)
+  const [flash, setFlash] = useState<string | null>(null)
+
+  useEffect(() => {
+    const unsub = bus.on((ev: any) => {
+      if (ev.type === 'policy-applied') {
+        setFlash(ev.agent)
+        setTimeout(() => setFlash(null), 800)
+      }
+    })
+    return () => { unsub() }
+  }, [])
 
   const agents = Object.values(roster)
 
@@ -22,7 +35,7 @@ export function Roster() {
             key={a.id}
             onClick={() => {}}
             data-testid="roster-row"
-            className={`w-full text-left px-2 py-2 rounded border transition ${a.id === selectedId ? 'border-ink bg-panel' : 'border-line hover:border-faint'}`}
+            className={`w-full text-left px-2 py-2 rounded border transition ${a.id === selectedId ? 'border-ink bg-panel' : 'border-line hover:border-faint'} ${flash === a.id ? 'bg-ink/10' : ''}`}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

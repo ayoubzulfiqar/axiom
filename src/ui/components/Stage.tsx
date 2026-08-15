@@ -1,4 +1,5 @@
 import { useRef, useEffect } from 'react'
+import { useBus } from '../stores/bus'
 import { useMissionStore } from '../../stores/mission'
 import { useMeshStore } from '../../stores/mesh'
 import { useSettingsStore } from '../../stores/settings'
@@ -14,9 +15,11 @@ export function Stage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const graphRef = useRef(createGraph([]))
   const lastTimeRef = useRef<number>(0)
+  const gateActiveRef = useRef(false)
   const missionActive = useMissionStore((s: { status: string }) => s.status === 'running' || s.status === 'paused')
   const speed = useSettingsStore((s: { speed: number }) => s.speed)
   const selectedId = useMeshStore((s: { selectedId: string | null }) => s.selectedId)
+  const graphOpen = useBus((s: { graphOpen: boolean }) => s.graphOpen)
 
   useEffect(() => {
     const ids = getDefs().map((d) => d.id)
@@ -52,6 +55,8 @@ export function Stage() {
       if (ev.type === 'mission-complete') {
         for (const n of g.nodes.values()) graphSetState(g, n.id, 'done')
       }
+      if (ev.type === 'gate-start') gateActiveRef.current = true
+      if (ev.type === 'gate-pass' || ev.type === 'gate-fail') gateActiveRef.current = false
     })
     return () => { unsub() }
   }, [])
@@ -87,9 +92,10 @@ export function Stage() {
         time: t,
       }
       applyCamera(ctx, s)
-      drawEdges(ctx, g, s, t)
+      const usedEdges = graphOpen ? new Set(g.edges.map((e) => `${e.from}->${e.to}`)) : undefined
+      drawEdges(ctx, g, s, t, usedEdges)
       drawNodes(ctx, g, s, selectedId, t, artifactFlash)
-      if (missionActive) drawOrchestratorRadar(ctx, s.width / s.dpr, s.height / s.dpr, t)
+      if (missionActive) drawOrchestratorRadar(ctx, s.width / s.dpr, s.height / s.dpr, t, gateActiveRef.current)
       if (useMissionStore.getState().status === 'complete') drawDoneGlyph(ctx, s.width / s.dpr, s.height / s.dpr)
       ctx.restore()
       drawVignette(ctx, canvas.width, canvas.height)
@@ -107,7 +113,7 @@ export function Stage() {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', onResize)
     }
-  }, [missionActive, speed, selectedId])
+  }, [missionActive, speed, selectedId, graphOpen])
 
   const handleCanvasClick = () => {
     setSelected(null)

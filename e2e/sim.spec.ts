@@ -16,6 +16,7 @@ test.describe('SIM mode offline flow', () => {
 
     await expect(page.locator('[data-testid="artifact-modal"]')).toBeVisible({ timeout: 10000 })
     await expect(page.locator('[data-testid="artifact-body"]')).not.toBeEmpty()
+    await expect(page.locator('[data-testid="artifact-modal"] .font-mono')).toHaveText('VERIFIED')
 
     await page.click('[data-testid="artifact-modal"] .close-button, [aria-label="Close"]')
     await page.click('[data-testid="history-drawer"]')

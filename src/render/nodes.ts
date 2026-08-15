@@ -43,7 +43,7 @@ export function drawNodes(
   }
 }
 
-export function drawOrchestratorRadar(cx: CanvasRenderingContext2D, width: number, height: number, time: number) {
+export function drawOrchestratorRadar(cx: CanvasRenderingContext2D, width: number, height: number, time: number, gateActive?: boolean) {
   cx.save()
   cx.strokeStyle = 'rgba(255,255,255,0.12)'
   cx.lineWidth = 1
@@ -55,6 +55,20 @@ export function drawOrchestratorRadar(cx: CanvasRenderingContext2D, width: numbe
   cx.moveTo(cx_, cy_)
   cx.lineTo(cx_ + Math.cos(angle) * radius, cy_ + Math.sin(angle) * radius)
   cx.stroke()
+
+  if (gateActive) {
+    const base = Math.min(width, height) * 0.35
+    cx.strokeStyle = 'rgba(255,255,255,0.18)'
+    cx.lineWidth = 1
+    cx.beginPath()
+    cx.setLineDash([4, 6])
+    cx.arc(cx_, cy_, base + 14, 0, Math.PI * 2)
+    cx.stroke()
+    cx.beginPath()
+    cx.arc(cx_, cy_, base + 20, 0, Math.PI * 2)
+    cx.stroke()
+    cx.setLineDash([])
+  }
   cx.restore()
 }
 
