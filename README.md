@@ -10,6 +10,13 @@ AXIOM is a monochrome, browser-native orchestration console that turns an OpenRo
 - Graph Shapes: Standard, Deep Research, Adversarial Review, Broad Sweep
 - Expanded tests/docs + Playwright per-shape e2e
 
+## Phase 3 — Production Polish
+
+- Cost observability: per-node cost accrual, Header cost chip, GraphDrawer cost bars
+- Context management: compact mission history under token budget with digest
+- Worker offload: Web Worker engine host with in-thread fallback
+- Local RAG: file ingestion, chunking, embedding, cosine search, RESEARCHER tool
+
 ## Stack
 
 - Vite + React 19 + TypeScript 7 (strict)
@@ -160,11 +167,37 @@ AXIOM agents can use built-in tools during streaming:
 
 Tools emit `tool-call` and `tool-result` bus events, which appear in the Feed and ping the node canvas.
 
+## Cost observability
+
+- `src/engine/cost.ts` caches model pricing and records per-call token usage.
+- Mission-level and per-node cost is emitted via `cost-updated`.
+- UI surfaces cost in `Header.tsx` (`$` chip) and `GraphDrawer.tsx` (sorted monochrome bars).
+
+## Context management
+
+- `src/engine/context.ts` builds the orchestrator context under `CONTEXT_BUDGET`.
+- Always includes system prompt, objective, graph shape, available agents, and last 3 steps.
+- Older steps are compacted into a one-line-per-step digest; full artifacts are only loaded on explicit full-read paths.
+
+## Worker architecture
+
+- `src/engine/worker.ts` hosts heavy engine work off the UI thread.
+- `src/engine/client.ts` exposes `runMission`, `abortMission`, `ingestFile`, `searchKnowledge`, and `destroy`.
+- If `Worker` is unavailable, it falls back to in-thread execution behind the same API.
+
+## Local RAG
+
+- `src/engine/rag.ts` provides chunking, embedding, cosine search, and ingest/search bus events.
+- `knowledge_search` tool is attached to RESEARCHER and uses local embeddings only.
+- Dexie `chunks` table persists ingested text + embeddings; SIM mode can use pre-baked vectors.
+- `src/ui/components/FileDropZone.tsx` provides drag/drop + browse ingestion UI.
+
 ## Persistence
 
 - Dexie `missions` table: `id`, `objective`, `endedAt`, `steps`, `tokens`, `artifact`
 - Dexie `artifacts` table: `id`, `missionId`, `nodeId`, `kind`, `summary`, `content`, `createdAt`
 - Dexie `checkpoints` table: `missionId`, `status`, `currentStep`, `completedNodes`, `decisions`, `artifactIds`, `budgets`, `updatedAt`
+- Dexie `chunks` table: `id`, `missionScope`, `sourceFile`, `text`, `embedding`, `createdAt`
 - Browser: localStorage/sessionStorage for keys, model overrides, speed, session-only flag, checkpoints
 - Desktop: `tauri-plugin-stronghold` for secure key storage
 
