@@ -16,6 +16,12 @@ export interface BusUIState {
   setDetailOpen: (v: boolean) => void
   vaultOpen: boolean
   setVaultOpen: (v: boolean) => void
+  graphOpen: boolean
+  setGraphOpen: (v: boolean) => void
+  approvalOpen: boolean
+  setApprovalOpen: (v: boolean) => void
+  approvalPreview: string | null
+  setApprovalPreview: (v: string | null) => void
 }
 
 export const useBus = create<BusUIState>((set) => ({
@@ -32,8 +38,16 @@ export const useBus = create<BusUIState>((set) => ({
   setDetailOpen: (v) => set({ detailOpen: v }),
   vaultOpen: false,
   setVaultOpen: (v) => set({ vaultOpen: v }),
+  graphOpen: false,
+  setGraphOpen: (v) => set({ graphOpen: v }),
+  approvalOpen: false,
+  setApprovalOpen: (v) => set({ approvalOpen: v }),
+  approvalPreview: null,
+  setApprovalPreview: (v) => set({ approvalPreview: v }),
 }))
 
 bus.on((ev: BusEvent) => {
   if (ev.type === 'mission-complete') useBus.setState({ artifact: ev.final, objectiveOpen: false })
+  if (ev.type === 'approval-requested') useBus.setState({ approvalOpen: true, approvalPreview: ev.summary })
+  if (ev.type === 'mission-start') useBus.setState({ approvalOpen: false, approvalPreview: null })
 })

@@ -1,11 +1,28 @@
 import { useBus } from '../stores/bus'
 import { Button } from '../components/ui/button'
+import { useMissionStore } from '../../stores/mission'
+import bus from '../../engine/bus'
+import { loadCheckpoint } from '../../engine/checkpoints'
 import { useState } from 'react'
 
 export function Header() {
   const setRosterOpen = useBus((s: { setRosterOpen: (v: boolean) => void }) => s.setRosterOpen)
   const setVaultOpen = useBus((s: { setVaultOpen: (v: boolean) => void }) => s.setVaultOpen)
-  const [sim, setSim] = useState(false)
+  const setObjectiveOpen = useBus((s: { setObjectiveOpen: (v: boolean) => void }) => s.setObjectiveOpen)
+  const [simEnabled, setSimEnabled] = useState(false)
+  const toggleSim = () => {
+    const next = !simEnabled
+    setSimEnabled(next)
+    if (next) useBus.getState().setObjectiveOpen(true)
+  }
+  const status = useMissionStore((s: { status: string }) => s.status)
+  const resume = () => {
+    const cp = loadCheckpoint('current')
+    if (cp) {
+      bus.emit({ type: 'mission-start', objective: cp.missionId })
+      useMissionStore.setState({ status: 'running', objective: cp.missionId, step: cp.currentStep, total: cp.currentStep + 1 })
+    }
+  }
 
   return (
     <header className="h-12 border-b border-line bg-panel/40 flex items-center px-4 justify-between">
@@ -15,10 +32,11 @@ export function Header() {
       </div>
       <div className="flex items-center gap-2">
         <label className="flex items-center gap-2 text-[10px] text-dim">
-          <input type="checkbox" data-testid="sim-toggle" checked={sim} onChange={(e) => setSim(e.target.checked)} />
+          <input type="checkbox" data-testid="sim-toggle" checked={simEnabled} onChange={toggleSim} />
           SIM MODE
         </label>
-        <Button data-testid="run-button" variant="outline" size="sm" className="border-line text-ink" onClick={() => useBus.getState().setObjectiveOpen(true)}>RUN</Button>
+        {status === 'paused' && <Button data-testid="resume-button" variant="outline" size="sm" className="border-line text-ink" onClick={resume}>RESUME</Button>}
+        <Button data-testid="run-button" variant="outline" size="sm" className="border-line text-ink" onClick={() => setObjectiveOpen(true)}>RUN</Button>
         <Button variant="ghost" size="sm" className="text-dim" onClick={() => setRosterOpen(true)}>ROSTER</Button>
         <Button variant="ghost" size="sm" className="text-dim" onClick={() => setVaultOpen(true)}>VAULT</Button>
       </div>

@@ -11,6 +11,7 @@ export interface MissionState {
   fault: string | null
   currentArtifactId: string | null
   verified: boolean | null
+  decisions: Array<{ step: number; thought: string; routes: string[] }>
 }
 
 export const useMissionStore = create<MissionState>(() => ({
@@ -22,6 +23,7 @@ export const useMissionStore = create<MissionState>(() => ({
   fault: null,
   currentArtifactId: null,
   verified: null,
+  decisions: [],
 }))
 
 export function bindMissionBus() {

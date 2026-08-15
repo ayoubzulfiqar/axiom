@@ -6,7 +6,8 @@ export function drawNodes(
   g: Graph,
   s: SceneState,
   selectedId: string | null,
-  time: number
+  time: number,
+  artifactFlash?: Map<string, number>
 ) {
   for (const node of g.nodes.values()) {
     const x = node.x * s.zoom + s.panX
@@ -33,6 +34,11 @@ export function drawNodes(
     cx.textAlign = 'center'
     cx.textBaseline = 'middle'
     cx.fillText(node.label, x, y)
+    if (artifactFlash?.has(node.id)) {
+      const alpha = Math.min(1, (artifactFlash.get(node.id) ?? 0))
+      cx.fillStyle = `rgba(255,255,255,${alpha})`
+      cx.fillRect(x + radius + 2, y - radius - 10, 8 * s.zoom, 6 * s.zoom)
+    }
     cx.restore()
   }
 }

@@ -63,6 +63,7 @@ export function Stage() {
     if (!ctx) return
 
     let raf = 0
+    const artifactFlash = new Map<string, number>()
     const tick = (t: number) => {
       const dt = Math.min(t - lastTimeRef.current, 50)
       lastTimeRef.current = t
@@ -87,7 +88,7 @@ export function Stage() {
       }
       applyCamera(ctx, s)
       drawEdges(ctx, g, s, t)
-      drawNodes(ctx, g, s, selectedId, t)
+      drawNodes(ctx, g, s, selectedId, t, artifactFlash)
       if (missionActive) drawOrchestratorRadar(ctx, s.width / s.dpr, s.height / s.dpr, t)
       if (useMissionStore.getState().status === 'complete') drawDoneGlyph(ctx, s.width / s.dpr, s.height / s.dpr)
       ctx.restore()

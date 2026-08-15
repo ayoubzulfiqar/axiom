@@ -3,12 +3,15 @@ import { useMeshStore } from '../../stores/mesh'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Button } from '../components/ui/button'
+import { getDef } from '../../engine/agents'
+import type { AgentDef } from '../../engine/types'
 
 export function DetailCard() {
   const open = useBus((s: { detailOpen: boolean }) => s.detailOpen)
   const selectedId = useMeshStore((s: { selectedId: string | null }) => s.selectedId)
   const roster = useMeshStore((s: { roster: Record<string, { id: string; label: string; state: string; role: string; tasks: string[]; model: string; tools?: string[] }> }) => s.roster)
   const agent = selectedId ? roster[selectedId] : null
+  const def: AgentDef | undefined = selectedId ? getDef(selectedId) : undefined
 
   if (!open || !agent) return null
 
@@ -44,6 +47,16 @@ export function DetailCard() {
             </SelectContent>
           </Select>
         </div>
+        {def && (
+          <div className="mt-2 space-y-1">
+            <div className="text-[10px] font-bold tracking-widest text-dim">CONTRACT</div>
+            <div className="text-[10px] font-mono text-ink/80">
+              <div>OUTPUT: {typeof def.outputSchema === 'string' ? def.outputSchema : 'structured'}</div>
+              <div>FAILURE: {def.failure ?? 'default'}</div>
+              <div>POLICY: retries={def.policy?.retries ?? 1} onFail={def.policy?.onFail ?? 'retry'}</div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
