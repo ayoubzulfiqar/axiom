@@ -19,10 +19,9 @@ export function getSpeed(): Speed {
 }
 
 export function runSimulation(objective: string) {
-  reset()
-  active = true
   initDefs()
   bus.emit({ type: 'mission-start', objective })
+  active = true
 
   const defs = getDefs()
   const orchestrator = defs[0]
