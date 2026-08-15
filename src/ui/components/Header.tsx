@@ -4,16 +4,16 @@ import { useMissionStore } from '../../stores/mission'
 import { useSettingsStore } from '../../stores/settings'
 import bus from '../../engine/bus'
 import { loadCheckpoint } from '../../engine/checkpoints'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export function Header() {
   const setRosterOpen = useBus((s: { setRosterOpen: (v: boolean) => void }) => s.setRosterOpen)
   const setVaultOpen = useBus((s: { setVaultOpen: (v: boolean) => void }) => s.setVaultOpen)
   const setObjectiveOpen = useBus((s: { setObjectiveOpen: (v: boolean) => void }) => s.setObjectiveOpen)
-  const [simEnabled, setSimEnabled] = useState(false)
+  const simMode = useBus((s: { simMode: boolean }) => s.simMode)
   const toggleSim = () => {
-    const next = !simEnabled
-    setSimEnabled(next)
+    const next = !simMode
+    useBus.getState().setSimMode(next)
     if (next) useBus.getState().setObjectiveOpen(true)
   }
   const status = useMissionStore((s: { status: string }) => s.status)
@@ -44,7 +44,7 @@ export function Header() {
       </div>
       <div className="flex items-center gap-2">
         <label className="flex items-center gap-2 text-[10px] text-dim">
-          <input type="checkbox" data-testid="sim-toggle" checked={simEnabled} onChange={toggleSim} />
+          <input type="checkbox" data-testid="sim-toggle" checked={simMode} onChange={toggleSim} />
           SIM MODE
         </label>
         <label className="flex items-center gap-2 text-[10px] text-dim">

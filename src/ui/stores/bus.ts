@@ -22,6 +22,10 @@ export interface BusUIState {
   setApprovalOpen: (v: boolean) => void
   approvalPreview: string | null
   setApprovalPreview: (v: string | null) => void
+  artifactOpen: boolean
+  setArtifactOpen: (v: boolean) => void
+  simMode: boolean
+  setSimMode: (v: boolean) => void
 }
 
 export const useBus = create<BusUIState>((set) => ({
@@ -44,10 +48,21 @@ export const useBus = create<BusUIState>((set) => ({
   setApprovalOpen: (v) => set({ approvalOpen: v }),
   approvalPreview: null,
   setApprovalPreview: (v) => set({ approvalPreview: v }),
+  artifactOpen: false,
+  setArtifactOpen: (v) => set({ artifactOpen: v }),
+  simMode: false,
+  setSimMode: (v) => set({ simMode: v }),
 }))
 
 bus.on((ev: BusEvent) => {
-  if (ev.type === 'mission-complete') useBus.setState({ artifact: ev.final, objectiveOpen: false })
+  if (ev.type === 'mission-complete') useBus.setState({ artifact: ev.final, objectiveOpen: false, artifactOpen: true })
   if (ev.type === 'approval-requested') useBus.setState({ approvalOpen: true, approvalPreview: ev.summary })
-  if (ev.type === 'mission-start') useBus.setState({ approvalOpen: false, approvalPreview: null })
+  if (ev.type === 'approval-resolved') {
+    if (ev.decision === 'approved') {
+      useBus.setState({ approvalOpen: false, artifactOpen: true, artifact: useBus.getState().approvalPreview })
+    } else {
+      useBus.setState({ approvalOpen: false })
+    }
+  }
+  if (ev.type === 'mission-start') useBus.setState({ approvalOpen: false, approvalPreview: null, artifactOpen: false, artifact: null })
 })

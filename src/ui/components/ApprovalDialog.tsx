@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '../components/ui/button'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import bus from '../../engine/bus'
 
 export function ApprovalDialog() {
   const open = useBus((s: { approvalOpen: boolean }) => s.approvalOpen)
@@ -10,6 +11,17 @@ export function ApprovalDialog() {
   const preview = useBus((s: { approvalPreview: string | null }) => s.approvalPreview)
 
   if (!open) return null
+
+  const handleApprove = () => {
+    setOpen(false)
+    useBus.getState().setArtifactOpen(true)
+    bus.emit({ type: 'approval-resolved', decision: 'approved' })
+  }
+
+  const handleReject = () => {
+    setOpen(false)
+    bus.emit({ type: 'approval-resolved', decision: 'rejected', feedback: 'User rejected delivery.' })
+  }
 
   return (
     <Dialog open={open} onOpenChange={(v) => setOpen(v)}>
@@ -21,8 +33,8 @@ export function ApprovalDialog() {
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{preview ?? ''}</ReactMarkdown>
         </div>
         <DialogFooter className="flex justify-end gap-2">
-          <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>REJECT</Button>
-          <Button size="sm" className="bg-ink text-bg" onClick={() => setOpen(false)}>APPROVE</Button>
+          <Button size="sm" variant="ghost" onClick={handleReject}>REJECT</Button>
+          <Button size="sm" className="bg-ink text-bg" onClick={handleApprove}>APPROVE</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

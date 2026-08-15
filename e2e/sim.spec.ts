@@ -3,13 +3,16 @@ import { test, expect } from '@playwright/test'
 test.describe('SIM mode offline flow', () => {
   test('boot -> objective -> SIM run -> roster -> artifact -> history', async ({ page }) => {
     await page.goto('/')
-    await page.waitForTimeout(2000)
+    await page.waitForTimeout(2500)
+
+    await page.click('[data-testid="run-button"]')
+    await page.waitForTimeout(100)
 
     await page.click('[data-testid="objective-input"]')
     await page.fill('[data-testid="objective-input"]', 'E2E mission')
     await page.click('[data-testid="objective-submit"]')
-
-    await page.click('[data-testid="sim-toggle"]')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(100)
     await page.click('[data-testid="run-button"]')
 
     await expect(page.locator('[data-testid="roster-row"]').first()).toBeVisible({ timeout: 10000 })

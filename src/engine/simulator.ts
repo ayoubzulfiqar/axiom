@@ -78,6 +78,7 @@ export function runSimulation(objective: string) {
       bus.emit({ type: 'artifact-stored', id: 'sim-artifact-1', agent: writer.id, kind: 'final', summary: 'Simulated final artifact' })
       runFinalGate({ id: 'sim-artifact-1', nodeId: writer.id, kind: 'final', summary: 'Simulated final artifact', content: final }).then((gate) => {
         bus.emit({ type: 'approval-requested', missionId: 'sim', artifactId: 'sim-artifact-1', summary: 'Simulated final artifact' })
+        bus.emit({ type: 'approval-resolved', decision: 'approved' })
         bus.emit({ type: 'mission-complete', final, artifactId: 'sim-artifact-1', verified: gate.verdict === 'pass' })
       })
       emitPolicyApplied('RESEARCHER', 'skip', 'simulated policy skip')
