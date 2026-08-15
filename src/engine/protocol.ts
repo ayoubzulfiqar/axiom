@@ -6,6 +6,7 @@ export const PlanSchema = z.object({
     .array(z.object({ agent: z.string(), task: z.string() }))
     .max(3),
   final: z.string().nullable(),
+  merge: z.boolean().optional(),
 })
 
 export type Plan = z.infer<typeof PlanSchema>

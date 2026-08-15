@@ -19,10 +19,12 @@ export interface ArtifactRecord {
   id?: string
   missionId: string
   nodeId: string
-  kind: 'research' | 'analysis' | 'draft' | 'critique' | 'final' | 'raw'
+  kind: 'research' | 'analysis' | 'draft' | 'critique' | 'final' | 'raw' | 'draft-shard'
   summary: string
   content: string
   createdAt: number
+  shardIndex?: number
+  mergedFrom?: string[]
 }
 
 export interface CheckpointRecord {

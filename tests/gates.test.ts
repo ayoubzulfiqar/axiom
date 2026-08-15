@@ -61,4 +61,22 @@ describe('gates', () => {
     const passCount = results.filter((r) => r.verdict === 'pass').length
     expect(passCount).toBe(2)
   })
+
+  it('fresh context critic has message length 2', async () => {
+    const mock = vi.fn(async (opts: any) => {
+      opts.onChunk?.({ textDelta: '{"verdict":"pass","issues":[]}' })
+      return { text: '{"verdict":"pass","issues":[]}' }
+    })
+    await runFreshCritic(
+      { id: 'C1', label: 'CRITIC', model: 'm', system: 'You are a critic.' },
+      { id: 'a1', nodeId: 'n', kind: 'raw', summary: 's', content: 'hello' },
+      'objective text',
+      undefined,
+      mock
+    )
+    expect(mock).toHaveBeenCalledTimes(1)
+    const callArgs = mock.mock.calls[0][0]
+    expect(callArgs.user).toContain('Artifact ID: a1')
+    expect(callArgs.user).toContain('Objective: objective text')
+  })
 })

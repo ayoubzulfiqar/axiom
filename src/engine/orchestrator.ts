@@ -8,7 +8,6 @@ import { upsertCheckpoint } from './checkpoints'
 import { runFinalGate } from './gates'
 import { emitArtifactStored } from './artifacts'
 import { resolvePolicy, getPolicyFor, errorTypeFor } from './policies'
-import type { ArtifactRecord } from './types'
 import { structuredSummaryForRole } from './artifacts'
 
 const artifactStore = new ArtifactStore((globalThis as any).axiomDb ?? new (require('dexie').default)('axiom'))
@@ -37,30 +36,31 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function createArtifactRecord(missionId: string, nodeId: string, kind: string, content: string, rawSummary?: string): Promise<{ id: string; summary: string }> {
+async function createArtifactRecord(missionId: string, nodeId: string, kind: string, content: string, rawSummary?: string, shardIndex?: number): Promise<{ id: string; summary: string }> {
   const id = crypto.randomUUID()
   const summary = rawSummary ?? content.slice(0, 500)
-  const record = {
+  const record: any = {
     id,
     missionId,
     nodeId,
-    kind: kind as ArtifactRecord['kind'],
+    kind: kind === 'draft' && typeof shardIndex === 'number' ? 'draft-shard' : kind,
     summary,
     content,
     createdAt: Date.now(),
   }
-  await artifactStore.put(record as any)
-  emitArtifactStored(id, nodeId, kind, summary)
+  if (typeof shardIndex === 'number') record.shardIndex = shardIndex
+  await artifactStore.put(record)
+  emitArtifactStored(id, nodeId, record.kind, summary)
   return { id, summary }
 }
 
-async function agentResultToArtifact(missionId: string, _objective: string, task: { agent: string; task: string }, text: string): Promise<{ id: string; summary: string }> {
+async function agentResultToArtifact(missionId: string, _objective: string, task: { agent: string; task: string }, text: string, shardIndex?: number): Promise<{ id: string; summary: string; content: string }> {
   const def = getDef(task.agent)
   const role = def?.role ?? 'raw'
   const kind = role === 'researcher' ? 'research' : role === 'analyst' ? 'analysis' : role === 'writer' ? 'draft' : role === 'critic' ? 'critique' : 'raw'
   const { summary } = structuredSummaryForRole(role, text)
-  const record = await createArtifactRecord(missionId, task.agent, kind, text, summary)
-  return { id: record.id, summary }
+  const record = await createArtifactRecord(missionId, task.agent, kind, text, summary, shardIndex)
+  return { id: record.id, summary, content: text }
 }
 
 export async function runMission(objective: string, signal: AbortController): Promise<string> {
@@ -138,7 +138,7 @@ export async function runMission(objective: string, signal: AbortController): Pr
             return r
           }))
         )
-        const artifacts = results.filter((r): r is PromiseFulfilledResult<{ id: string; summary: string }> => r.status === 'fulfilled').map((r) => r.value)
+        const artifacts = results.filter((r): r is PromiseFulfilledResult<{ id: string; summary: string; content: string }> => r.status === 'fulfilled').map((r) => r.value)
         history.push({ thought: plan.thought, routes: plan.dispatch.map((d) => d.agent), artifactId: artifacts[0]?.id, summary: artifacts[0]?.summary ?? '' })
         continue
       }
@@ -157,13 +157,21 @@ export async function runMission(objective: string, signal: AbortController): Pr
       }
       if (plan.dispatch.length === 0) continue
       const results = await Promise.allSettled(
-        plan.dispatch.map((d) => dispatchAgent(objective, missionId, d, signal).then((r) => {
+        plan.dispatch.map((d, idx) => dispatchAgent(objective, missionId, d, signal, getDef(d.agent)?.role === 'writer' ? idx : undefined).then((r) => {
           latencyTimestamps.set(d.agent, Date.now())
           return r
         }))
       )
-      const artifacts = results.filter((r): r is PromiseFulfilledResult<{ id: string; summary: string }> => r.status === 'fulfilled').map((r) => r.value)
-      history.push({ thought: plan.thought, routes: plan.dispatch.map((d) => d.agent), artifactId: artifacts[0]?.id, summary: artifacts[0]?.summary ?? '' })
+      const artifacts = results.filter((r): r is PromiseFulfilledResult<{ id: string; summary: string; content: string }> => r.status === 'fulfilled').map((r) => r.value)
+      let merged = artifacts[0]
+      if (plan.merge && artifacts.length > 1) {
+        const writerShards = artifacts.filter((_, i) => getDef(plan.dispatch[i]?.agent ?? '')?.role === 'writer')
+        if (writerShards.length > 1) {
+          const mergedArtifact = mergeShards(writerShards.map((a, i) => ({ ...a, shardIndex: i })))
+          merged = { id: mergedArtifact.id, summary: mergedArtifact.summary, content: mergedArtifact.content }
+        }
+      }
+      history.push({ thought: plan.thought, routes: plan.dispatch.map((d) => d.agent), artifactId: merged?.id, summary: merged?.summary ?? '' })
     }
     const fallback = history.length ? history[history.length - 1].summary : objective
     bus.emit({ type: 'mission-complete', final: fallback })
@@ -185,8 +193,9 @@ export async function dispatchAgent(
   objective: string,
   missionId: string,
   task: { agent: string; task: string },
-  signal: AbortController
-): Promise<{ id: string; summary: string }> {
+  signal: AbortController,
+  shardIndex?: number
+): Promise<{ id: string; summary: string; content: string }> {
   const def = getDef(task.agent)
   if (!def) throw new Error(`UNKNOWN_AGENT ${task.agent}`)
   setAgentState(task.agent, 'running')
@@ -220,7 +229,7 @@ export async function dispatchAgent(
       const text = accumulated || result.text || ''
       setAgentState(task.agent, 'done')
       bus.emit({ type: 'agent-done', agent: task.agent })
-      return agentResultToArtifact(missionId, objective, task, text)
+      return agentResultToArtifact(missionId, objective, task, text, shardIndex)
     } catch (err: unknown) {
       attempts++
       const msg = err instanceof Error ? err.message : 'UNKNOWN'
@@ -246,4 +255,40 @@ export function latencyFor(agent: string): number {
   const start = latencyTimestamps.get(agent)
   if (!start) return 0
   return Date.now() - start
+}
+
+export function mergeShards(shards: Array<{ id: string; summary: string; content: string; shardIndex?: number }>): { id: string; summary: string; content: string } {
+  const sorted = shards.slice().sort((a, b) => (a.shardIndex ?? 0) - (b.shardIndex ?? 0))
+  const seen = new Set<string>()
+  const sections: { heading: string; body: string }[] = []
+  for (const shard of sorted) {
+    const parsed = safeParseShardContent(shard.content)
+    const items = Array.isArray(parsed) ? parsed : [{ heading: shard.summary || `Shard ${shard.shardIndex ?? 0}`, body: shard.content }]
+    for (const item of items) {
+      const key = item.heading.trim().toLowerCase()
+      if (key && !seen.has(key)) {
+        seen.add(key)
+        sections.push({ heading: item.heading, body: item.body })
+      }
+    }
+  }
+  const merged = sections.map((s) => `# ${s.heading}\n\n${s.body}`).join('\n\n')
+  const summary = `Merged ${sorted.length} shard(s) into ${sections.length} section(s).`
+  return { id: crypto.randomUUID(), summary, content: merged }
+}
+
+function safeParseShardContent(raw: string): Array<{ heading: string; body: string }> | null {
+  const trimmed = raw.trim()
+  const start = trimmed.indexOf('{')
+  const end = trimmed.lastIndexOf('}')
+  if (start !== -1 && end !== -1 && end > start) {
+    try {
+      const parsed = JSON.parse(trimmed.slice(start, end + 1))
+      if (Array.isArray(parsed)) return parsed.map((x: any) => ({ heading: String(x?.heading ?? 'Section'), body: String(x?.body ?? x?.content ?? '') }))
+      if (Array.isArray(parsed?.sections)) return parsed.sections.map((x: any) => ({ heading: String(x?.heading ?? 'Section'), body: String(x?.body ?? '') }))
+    } catch {
+      // fallback
+    }
+  }
+  return null
 }
