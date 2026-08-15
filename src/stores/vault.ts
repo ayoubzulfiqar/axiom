@@ -18,6 +18,11 @@ export const useVaultStore = create<VaultState>((set) => ({
   setVaultOpen: (v) => set({ vaultOpen: v }),
 }))
 
+;(async () => {
+  const key = await loadKey()
+  useVaultStore.setState({ connected: !!key, maskedKey: maskKey(key) })
+})()
+
 bus.on(async () => {
   const key = await loadKey()
   if (key) {

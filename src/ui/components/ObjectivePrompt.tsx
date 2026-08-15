@@ -17,15 +17,21 @@ export function ObjectivePrompt() {
   const status = useMissionStore((s: { status: string }) => s.status)
 
   const handleRun = async () => {
+    const title = document.querySelector('title')
+    if (title) title.textContent = 'AXIOM RUNNING'
     if (!text.trim()) return
     if (!connected) {
       useVaultStore.getState().setVaultOpen(true)
       return
     }
-    setOpen(false)
+    useBus.setState({ objectiveOpen: false })
     useMissionStore.setState({ status: 'running', objective: text, startedAt: Date.now() })
     clearFeed()
-    runSimulation(text.trim())
+    try {
+      runSimulation(text.trim())
+    } catch (e) {
+      console.error('SIM ERROR', e)
+    }
   }
 
   return (
