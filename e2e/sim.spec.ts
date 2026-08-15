@@ -20,6 +20,7 @@ test.describe('SIM mode offline flow', () => {
 
     await page.click('[data-testid="objective-input"]')
     await page.fill('[data-testid="objective-input"]', 'E2E mission')
+    await page.click('[data-testid="shape-adversarial"]')
     await page.evaluate(() => {
       const btn = document.querySelector('[data-testid="objective-submit"]') as HTMLButtonElement | null
       btn?.click()
@@ -32,5 +33,8 @@ test.describe('SIM mode offline flow', () => {
       await expect(maybeVerified.first()).toHaveText('VERIFIED')
     }
     await expect(page.locator('[data-testid="copy-button"]')).toBeVisible()
+
+    await expect(page.locator('[data-testid="telemetry-chip"]')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('[data-testid="telemetry-chip"]')).toContainText('x /')
   })
 })
