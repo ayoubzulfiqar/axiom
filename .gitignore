@@ -4,7 +4,9 @@ dist
 *.tsbuildinfo
 
 # Env
+.env
 .env*.local
+test-results/
 
 # Logs
 logs

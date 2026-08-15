@@ -12,7 +12,9 @@ import { structuredSummaryForRole } from './artifacts'
 import { recordCall, simulateCost } from './cost'
 import { buildContextMessages } from './context'
 
-const artifactStore = new ArtifactStore((globalThis as any).axiomDb ?? new (require('dexie').default)('axiom'))
+import { db } from '../lib/db'
+
+const artifactStore = new ArtifactStore((globalThis as any).axiomDb ?? db)
 
 export const MAX_STEPS = 6
 export const MAX_TOKENS = 1500

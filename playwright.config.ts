@@ -4,12 +4,12 @@ export default defineConfig({
   testDir: 'e2e',
   timeout: 120000,
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: 'http://localhost:4174',
     headless: true,
   },
   webServer: {
-    command: 'node node_modules/vite/bin/vite.js preview --port 4173',
-    port: 4173,
+    command: 'npx vite --port 4174 --host',
+    port: 4174,
     reuseExistingServer: true,
     timeout: 120000,
   },

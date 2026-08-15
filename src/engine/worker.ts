@@ -1,8 +1,9 @@
+import Dexie from 'dexie'
 import { ChunkStore } from './storage'
 import { chunkText, embedText, rankChunks, emitIngestProgress, emitRagReady } from './rag'
 import { resetCost } from './cost'
 
-const db = new (require('dexie')).default('axiom')
+const db = new Dexie('axiom')
 const chunkStore = new ChunkStore(db)
 
 const running = new Map<string, AbortController>()

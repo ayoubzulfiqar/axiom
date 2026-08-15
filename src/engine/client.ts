@@ -3,6 +3,7 @@ import { abortAll } from './orchestrator'
 import { resetCost } from './cost'
 import { ChunkStore } from './storage'
 import { chunkText, embedText, rankChunks, emitIngestProgress, emitRagReady } from './rag'
+import { db } from '../lib/db'
 
 export interface ClientMissionInput {
   id: string
@@ -92,7 +93,7 @@ export async function ingestFile(fileName: string, text: string) {
   initWorker()
   if (useFallback || !worker) {
     const chunks = chunkText(text, fileName)
-    const store = new ChunkStore((globalThis as any).axiomDb ?? new (require('dexie').default)('axiom'))
+    const store = new ChunkStore((globalThis as any).axiomDb ?? db)
     emitIngestProgress(fileName, 'parse', 10)
     emitIngestProgress(fileName, 'chunk', 40)
     for (let i = 0; i < chunks.length; i++) {
@@ -117,7 +118,7 @@ export async function ingestFile(fileName: string, text: string) {
 export async function searchKnowledge(query: string, topK = 5) {
   initWorker()
   if (useFallback || !worker) {
-    const store = new ChunkStore((globalThis as any).axiomDb ?? new (require('dexie').default)('axiom'))
+    const store = new ChunkStore((globalThis as any).axiomDb ?? db)
     const chunks = await store.byScope('global')
     const results = await rankChunks(query, chunks, topK)
     return results.map((r) => ({ text: r.text, sourceFile: r.sourceFile }))
