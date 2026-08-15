@@ -55,6 +55,7 @@ export type BusEvent =
   | { type: 'gate-fail'; gate: string; detail?: string }
   | { type: 'policy-applied'; agent: string; policy: string; detail: string }
   | { type: 'convergence'; reason: 'dry-rounds' | 'budget' | 'step-cap'; rounds: number }
+  | { type: 'jury-vote'; agent: string; model: string; verdict: string }
   | { type: 'approval-requested'; missionId: string; artifactId: string; summary: string }
   | { type: 'approval-resolved'; decision: 'approved' | 'rejected'; feedback?: string }
   | { type: 'checkpoint-updated'; missionId: string; step: number; status: 'running' | 'paused' | 'awaiting-approval' | 'interrupted' }
