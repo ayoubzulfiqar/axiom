@@ -41,6 +41,38 @@ The graph was extended with anti-bias gates, isolated shard artifacts, determini
 - `ObjectivePrompt.tsx` graph shape selector with `GRAPH SHAPE` label and stronger active-state styling.
 - `Header.tsx` telemetry chip text normalized to `actual / theoretical max`.
 
+## Phase 3 — Production Polish & Capability Pass
+Closed final production gaps: cost observability, context management, worker offload, and local RAG.
+
+### Cost Attribution (Task 1)
+- New `src/engine/cost.ts`: caches model pricing, records per-node/mission cost, emits `cost-updated`.
+- SIM mode emits deterministic mock costs via `simulateCost()`.
+- UI: `Header.tsx` cost chip, `GraphDrawer.tsx` cost bars, `DetailCard.tsx` cost section.
+
+### Context Management (Task 2)
+- New `src/engine/context.ts`: builds orchestrator messages under `CONTEXT_BUDGET`.
+- Always includes system + objective + graph shape + available agents + last 3 steps.
+- Older steps are compacted into a one-line-per-step digest with `context-compacted` event.
+
+### Worker Offload (Task 3)
+- New `src/engine/worker.ts` + `src/engine/client.ts`.
+- Worker hosts orchestrator loop, LLM fetch/stream, artifact/checkpoint writes, merge, cost, RAG.
+- Client exposes `runMission`, `abortMission`, `ingestFile`, `searchKnowledge`, `destroy`.
+- Graceful in-thread fallback when `Worker` is unavailable.
+- Canvas/render stays on UI thread; OffscreenCanvas noted as future path.
+
+### Local RAG (Task 4)
+- New `src/engine/rag.ts`: chunking, embedding, cosine search, ingest/search bus events.
+- `knowledge_search` tool attached to RESEARCHER via `src/engine/tools.ts`.
+- Dexie `chunks` table added in `src/lib/db.ts` and `src/engine/storage.ts`.
+- `src/ui/components/FileDropZone.tsx` provides drag/drop + browse ingestion UI.
+- SIM mode uses deterministic in-memory embeddings; no runtime model download.
+
+### Tests & Docs (Task 5)
+- New Vitest files: `tests/cost.test.ts`, `tests/context.test.ts`, `tests/rag.test.ts`, `tests/worker.test.ts`.
+- Playwright extended with cost chip assertion.
+- README updated with Phase 3 sections: cost, context, worker, RAG, persistence.
+
 ## Architecture
 Three decoupled layers with a typed event bus as the only seam:
 
@@ -56,11 +88,17 @@ Pure TypeScript, zero React, zero DOM. Fully unit-testable.
 - `gates.ts` — `final-gate` deterministic checks, fresh-context critic, jury mode, verdict emission
 - `policies.ts` — per-role failure policy resolution and `policy-applied` bus emission
 - `checkpoints.ts` — durable mission checkpoint store with localStorage + memory fallback
-- `storage.ts` — Dexie-backed `ArtifactStore` and `CheckpointStore`
-- `orchestrator.ts` — plan loop, parallel dispatch, artifact persistence, gate integration, convergence, budgets, deterministic merge
-- `simulator.ts` — offline SIM mode exercising artifacts, gates, policies, convergence, approval, graph shapes
+- `storage.ts` — Dexie-backed `ArtifactStore`, `CheckpointStore`, `ChunkStore`
+- `orchestrator.ts` — plan loop, parallel dispatch, artifact persistence, gate integration, convergence, budgets, deterministic merge, context compaction, cost accounting
+- `simulator.ts` — offline SIM mode exercising artifacts, gates, policies, convergence, approval, graph shapes, costs
 - `graph.ts` — node/edge data model + physics step
 - `telemetry.ts` — Amdahl speedup calculation, telemetry-updated bus emission
+- `cost.ts` — model pricing cache, per-node/mission cost accrual, cost-updated bus emission
+- `context.ts` — orchestrator context builder with token budget and digest compaction
+- `rag.ts` — chunking, embedding, cosine similarity, rankChunks, ingest/search bus emissions
+- `worker.ts` — Web Worker host for engine work, bridges bus events via postMessage
+- `client.ts` — Worker client with fallback, run/abort/ingest/search API
+- `tools.ts` — `web_search`, `code_exec`, `knowledge_search` tool registry
 
 ### Render (`src/render/`)
 Canvas 2D scene, zero React imports, owns its rAF loop.
@@ -73,17 +111,18 @@ Canvas 2D scene, zero React imports, owns its rAF loop.
 React 19 components. Never call APIs directly; consume stores + bus.
 - `App.tsx` — layout shell, overlay mounts, motion wrappers
 - `components/BootOverlay.tsx` — GSAP boot timeline
-- `components/Header.tsx` — brand, status, metrics, controls, telemetry HUD chip, resume button
+- `components/Header.tsx` — brand, status, metrics, controls, telemetry HUD chip, cost chip, resume button
 - `components/Roster.tsx` — agent list / mobile Sheet
 - `components/Feed.tsx` — throttled event stream with gate/policy/convergence lines
 - `components/Stage.tsx` — canvas host, rAF loop, bus bindings
-- `components/DetailCard.tsx` — selected node inspector + model picker + tool list + contract section
+- `components/DetailCard.tsx` — selected node inspector + model picker + tool list + contract section + cost
 - `components/VaultDialog.tsx` — BYOK key connect/verify/clear
 - `components/ArtifactModal.tsx` — react-markdown + COPY + verification badge
 - `components/HistoryDrawer.tsx` — Dexie mission log
 - `components/ObjectivePrompt.tsx` — mission input dialog with graph shape selector
-- `components/GraphDrawer.tsx` — inspectable routing decisions drawer
+- `components/GraphDrawer.tsx` — inspectable routing decisions drawer + cost by agent bars
 - `components/ApprovalDialog.tsx` — human approval / escalation dialog
+- `components/FileDropZone.tsx` — drag/drop + browse file ingestion UI
 - `hooks/` — useBus, useKeyInfo, useModels
 
 ### Stores
@@ -93,7 +132,7 @@ Zustand stores mirror engine state for the UI.
 - `src/stores/vault.ts` — connected, maskedKey, balance, async bus.on initialization
 - `src/stores/feed.ts` — 90-entry log with ~80ms throttled flush, gate/policy/convergence entries
 - `src/stores/settings.ts` — speed 1|2|4, reduced motion, approvalRequired
-- `src/ui/stores/bus.ts` — UI overlay state + bus→Zustand bridge
+- `src/ui/stores/bus.ts` — UI overlay state + bus→Zustand bridge, including `ragOpen`
 
 ## Key features implemented
 - BYOK vault with localStorage/sessionStorage, masked display, never-export rule
@@ -102,7 +141,7 @@ Zustand stores mirror engine state for the UI.
 - Parallel agent dispatch with streaming tokens and live event bus
 - Physics-based graph with node drag, edge draw-in, particles, radar sweep
 - SIM mode running fully offline with identical event pipeline
-- Dexie persistence for mission history and artifacts
+- Dexie persistence for mission history, artifacts, checkpoints, and RAG chunks
 - Tailwind v4 monochrome design system with CSS-first tokens
 - GSAP boot timeline and motion/react micro-interactions
 - Keyboard shortcuts (Space run/pause, Esc close overlays)
@@ -119,12 +158,12 @@ Zustand stores mirror engine state for the UI.
 - Package manager note: `pnpm` binary path can be broken in some shells; `npx pnpm@latest` and direct `node node_modules/...` invocations work for install/build/test
 
 ## Files delivered
-- `src/engine/*.ts` — 11 files
+- `src/engine/*.ts` — 18 files
 - `src/render/*.ts` — 4 files
 - `src/stores/*.ts` — 5 files
-- `src/ui/**/*.tsx` — 15 files
+- `src/ui/**/*.tsx` — 16 files
 - `src/lib/db.ts` — Dexie database
-- `tests/*.test.ts` — 9 test files
+- `tests/*.test.ts` — 13 test files
 - `e2e/sim.spec.ts` — Playwright SIM e2e
 - `package.json`, `pnpm-lock.yaml` — dependencies
 - `vite.config.ts`, `vitest.config.ts`, `tsconfig*.json` — configs
@@ -132,5 +171,5 @@ Zustand stores mirror engine state for the UI.
 - `README.md` — full project documentation
 
 ## Git
-- Latest commit: feat: polish graph shape selector + telemetry chip + per-shape e2e
+- Latest commit: docs: add Phase 3 sections to README
 - Pushed to origin/main
