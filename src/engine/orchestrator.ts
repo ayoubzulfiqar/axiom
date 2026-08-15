@@ -165,20 +165,27 @@ export async function runMission(objective: string, signal: AbortController): Pr
       }
       if (plan.dispatch.length === 0) continue
       const dispatchStart = Date.now()
-      const results = await Promise.allSettled(
+      const dispatchResults = await Promise.allSettled(
         plan.dispatch.map((d, idx) => dispatchAgent(objective, missionId, d, signal, getDef(d.agent)?.role === 'writer' ? idx : undefined).then((r) => {
           latencyTimestamps.set(d.agent, Date.now())
-          return r
+          return { result: r, index: idx, agent: d.agent }
         }))
       )
       parallelMs += Date.now() - dispatchStart
-      const artifacts = results.filter((r): r is PromiseFulfilledResult<{ id: string; summary: string; content: string }> => r.status === 'fulfilled').map((r) => r.value)
+      const artifacts = dispatchResults
+        .filter((r): r is PromiseFulfilledResult<{ result: { id: string; summary: string; content: string }; index: number; agent: string }> => r.status === 'fulfilled')
+        .map((r) => r.value.result)
+
       let merged = artifacts[0]
       if (plan.merge && artifacts.length > 1) {
-        const writerShards = artifacts.filter((_, i) => getDef(plan.dispatch[i]?.agent ?? '')?.role === 'writer')
+        const writerShards = dispatchResults
+          .filter((r): r is PromiseFulfilledResult<{ result: { id: string; summary: string; content: string }; index: number; agent: string }> => r.status === 'fulfilled')
+          .filter((r) => getDef(r.value.agent)?.role === 'writer')
+          .map((r, i) => ({ ...r.value.result, shardIndex: i }))
+
         if (writerShards.length > 1) {
           const mergeStart = Date.now()
-          const mergedArtifact = mergeShards(writerShards.map((a, i) => ({ ...a, shardIndex: i })))
+          const mergedArtifact = mergeShards(writerShards)
           serialMs += Date.now() - mergeStart
           merged = { id: mergedArtifact.id, summary: mergedArtifact.summary, content: mergedArtifact.content }
         }
