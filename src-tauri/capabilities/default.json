@@ -2,5 +2,5 @@
   "identifier": "default",
   "description": "Default capabilities for AXIOM desktop",
   "windows": ["main"],
-  "permissions": ["core:default", "stronghold:default", "fs:allow-app-data-dir-read"]
+  "permissions": ["core:default", "stronghold:default"]
 }

@@ -245,30 +245,44 @@ Tools emit `tool-call` and `tool-result` bus events, which appear in the Feed an
 
 ## Desktop packaging (Tauri 2)
 
-Prerequisites:
-- Rust toolchain (`rustup`, `cargo`) — **required to actually compile the bundle**
-- System dependencies for Tauri (WebView2 on Windows, webkit2gtk on Linux, Xcode on macOS)
+Verified build on Linux (Fedora 42, x86_64). The native bundle compiles and produces `.deb` and `.rpm`.
 
-Install the Rust toolchain if missing:
+Prerequisites:
+- Rust toolchain (`rustup`, `cargo`)
+- Linux system libraries (Tauri 2 webview + tray + stronghold):
+  ```bash
+  sudo dnf install -y webkit2gtk4.1-devel libsoup3-devel gtk3-devel \
+    libappindicator-gtk3-devel librsvg2-devel openssl-devel patchelf
+  # for AppImage output only (optional):
+  sudo dnf install -y squashfs-tools
+  ```
+- A Tauri icon set in `src-tauri/icons/` (generate from any 1024×1024 PNG with `pnpm tauri icon <png>`).
+
+Install Rust if missing:
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-Commands:
+Build & release:
 ```bash
 pnpm install
 pnpm run tauri:dev      # dev with hot reload (frontend on :1420)
-pnpm run tauri:build    # produces platform bundles into src-tauri/target/release/bundle
+pnpm run tauri:build    # produces platform bundles in src-tauri/target/release/bundle
+bash scripts/tauri-release.sh 2.1.0   # build + copy to release/ + create GitHub release
 ```
 
-`tauri.conf.json` was corrected for Tauri 2.x: the Tauri-1 `platforms` key was removed (platforms are
-inferred from the build target), so the config now validates and reaches the `cargo` step. The Rust
-sources (`main.rs`, `lib.rs`, `stronghold.rs`, `build.rs`) and capabilities are in place; key storage
-uses `tauri-plugin-stronghold`. The same `dist/` bundle works for Capacitor mobile builds.
+Notes / fixes applied this release:
+- `tauri.conf.json`: removed the invalid Tauri-1 `platforms` key (platforms are inferred from target).
+- `pnpm-workspace.yaml`: requires a valid `packages` field or `pnpm run build` fails in workspace mode.
+- `src-tauri/build.rs` + `Cargo.toml build = "build.rs"` are required so `tauri-build` runs codegen
+  (`generate_context!` and capability validation).
+- `tauri-plugin-stronghold` resolved to 2.3.1, whose API changed: there is no `init()` — the plugin is
+  registered via `tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build()` in `main.rs`.
+- Capability `default.json` references only `core:default` + `stronghold:default` (the `fs:` permission
+  was invalid because `tauri-plugin-fs` isn't a dependency).
+- AppImage output needs `squashfs-tools` (mksquashfs) and a working FUSE; `.deb`/`.rpm` do not.
 
-> Note: on a machine without `cargo`/`rustc`, `pnpm run tauri:build` fails at the `cargo metadata`
-> step (environment limitation, not a code defect). The frontend (`pnpm run build` → `dist/`) builds
-> cleanly and is what the Tauri shell loads.
+The same `dist/` bundle works for Capacitor mobile builds.
 
 ## Production hardening
 

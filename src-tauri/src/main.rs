@@ -3,11 +3,20 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_stronghold::init())
         .setup(|app| {
-            app.manage(tauri_plugin_stronghold::Stronghold::default());
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+            let dir = std::path::PathBuf::from(home).join(".local/share/com.axiom.orchestrator");
+            std::fs::create_dir_all(&dir).ok();
+            let salt_path = dir.join("salt");
+            app.handle()
+                .plugin(tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build())
+                .expect("failed to register stronghold plugin");
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+fn main() {
+    run();
 }
