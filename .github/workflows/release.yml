@@ -37,7 +37,7 @@ jobs:
             libssl-dev
 
       - name: Install JS dependencies
-        run: pnpm install
+        run: pnpm install --config.dangerously-allow-all-builds=true
 
       - name: Build Tauri bundles (deb, rpm)
         run: pnpm tauri build --bundles deb,rpm
@@ -72,7 +72,7 @@ jobs:
           echo "$env:USERPROFILE\.cargo\bin" | Out-File -Append -FilePath $env:GITHUB_PATH
 
       - name: Install JS dependencies
-        run: pnpm install
+        run: pnpm install --config.dangerously-allow-all-builds=true
 
       - name: Build Tauri bundle (msi)
         run: pnpm tauri build --bundles msi
