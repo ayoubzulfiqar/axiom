@@ -281,8 +281,15 @@ Notes / fixes applied this release:
 - Capability `default.json` references only `core:default` + `stronghold:default` (the `fs:` permission
   was invalid because `tauri-plugin-fs` isn't a dependency).
 - AppImage output needs `squashfs-tools` (mksquashfs) and a working FUSE; `.deb`/`.rpm` do not.
+- Windows (`.msi`) cannot be produced from a Linux dev box (WiX/NSIS are Windows-native). It is
+  built automatically by `.github/workflows/release.yml` on GitHub's `windows-2022` runner and
+  published to the tag release alongside the Linux `.deb`/`.rpm`.
 
-The same `dist/` bundle works for Capacitor mobile builds.
+Cross-platform release:
+```bash
+git tag vX.Y.Z && git push origin vX.Y.Z   # triggers the Release workflow (Linux + Windows)
+# or: gh workflow run Release
+```
 
 ## Production hardening
 
