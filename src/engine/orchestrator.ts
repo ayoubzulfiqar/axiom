@@ -1,6 +1,6 @@
 import bus from './bus'
 import { parsePlan } from './protocol'
-import { getDefs, getDef, setAgentState } from './agents'
+import { getDefs, getDef, setAgentState, initDefs } from './agents'
 import { loadKey, budgetAvailable } from './vault'
 import { planOnce, workerStream, makeWebSearchTool, makeCodeExecTool } from './llm'
 import { ArtifactStore } from './storage'
@@ -67,7 +67,8 @@ async function agentResultToArtifact(missionId: string, _objective: string, task
   return { id: record.id, summary, content: text }
 }
 
-export async function runMission(objective: string, signal: AbortController): Promise<string> {
+export async function runMission(objective: string, signal: AbortController, shape: string = 'standard'): Promise<string> {
+  initDefs()
   const missionId = crypto.randomUUID()
   const apiKey = await loadKey()
   if (!apiKey) {
@@ -77,7 +78,13 @@ export async function runMission(objective: string, signal: AbortController): Pr
 
   const budget = await budgetAvailable(apiKey)
   if (!budget.ok) {
-    bus.emit({ type: 'fault', agent: 'orchestrator', error: `BUDGET ▸ usage ${budget.usage?.toFixed(4)} / limit ${budget.limit?.toFixed(2)}` })
+    const detail =
+      budget.reason === 'invalid-key'
+        ? 'API key rejected by OpenRouter (401) — check your key in Vault'
+        : budget.reason === 'budget-exhausted'
+          ? `budget exhausted: usage ${budget.usage?.toFixed(4)} / limit ${budget.limit?.toFixed(2)}`
+          : `BUDGET ▸ usage ${budget.usage?.toFixed(4)} / limit ${budget.limit?.toFixed(2)}`
+    bus.emit({ type: 'fault', agent: 'orchestrator', error: `BUDGET ▸ ${detail}` })
     throw new Error('BUDGET')
   }
 
@@ -102,7 +109,7 @@ export async function runMission(objective: string, signal: AbortController): Pr
       if (signal.signal.aborted) throw new Error('ABORTED')
       const orchestrator = getDef('ORCH') ?? getDefs()[0]
       const agentList = getDefs().map((d) => `- ${d.id} (${d.role})`).join('\n')
-      const context = buildContextMessages(objective, history, 'standard', agentList)
+      const context = buildContextMessages(objective, history, shape, agentList)
       if (context.compacted) {
         bus.emit({ type: 'context-compacted', stepsCompacted: context.stepsCompacted, estTokens: context.estTokens })
       }
@@ -255,11 +262,18 @@ export async function dispatchAgent(
         },
       })
       const text = accumulated || result.text || ''
+      if (!text.trim()) {
+        throw new Error('EMPTY_RESPONSE model returned no content')
+      }
       setAgentState(task.agent, 'done')
       bus.emit({ type: 'agent-done', agent: task.agent })
-      const usage = (result as any)?.usage as { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined
-      if (usage) {
-        const cost = recordCall(task.agent, def.model, usage)
+      const usage = (result as any)?.usage as
+        | { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number; cost?: number }
+        | Promise<{ prompt_tokens?: number; completion_tokens?: number; total_tokens?: number; cost?: number }>
+        | undefined
+      const resolvedUsage = usage && typeof (usage as any).then === 'function' ? await (usage as any) : usage
+      if (resolvedUsage) {
+        const cost = recordCall(task.agent, def.model, resolvedUsage)
         bus.emit({ type: 'cost-updated', nodeId: task.agent, missionCostUsd: cost.missionCostUsd, nodeCostUsd: cost.nodeCostUsd })
       } else {
         const cost = simulateCost(task.agent, def.model)

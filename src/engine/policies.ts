@@ -6,7 +6,10 @@ const FALLBACK_POLICIES: Record<string, NonNullable<AgentDef['policy']>> = {
   researcher: { retries: 1, onFail: 'skip' },
   analyst: { retries: 2, onFail: 'retry' },
   writer: { retries: 1, onFail: 'repair' },
-  critic: { retries: 2, fallbackModel: 'openai/gpt-4o-mini', onFail: 'fallback' },
+  // NOTE: fallbackModel must stay on the FREE tier. A paid fallback here would silently
+  // charge the user whenever a free critic model is unavailable. `laguna-xs` is a free
+  // model we verified returns content via the AI SDK.
+  critic: { retries: 2, fallbackModel: 'poolside/laguna-xs-2.1:free', onFail: 'fallback' },
   orchestrator: { retries: 0, onFail: 'stop' },
 }
 
@@ -39,9 +42,13 @@ export function errorTypeFor(err: unknown): PolicyErrorType {
   if (msg.includes('401') || msg.includes('auth')) return 'auth'
   if (msg.includes('402') || msg.includes('credits')) return 'credits'
   if (msg.includes('429') || msg.includes('rate')) return 'transient'
+  if (msg.includes('empty_response')) return 'unavailable'
   if (msg.includes('schema') || msg.includes('validation')) return 'schema'
   if (msg.includes('unavailable') || msg.includes('model')) return 'unavailable'
-  return 'transient'
+  // Unknown/empty failures: treat as unavailable (not transient) so we don't loop retrying
+  // a free model that consistently returns no content.
+  if (!msg) return 'unavailable'
+  return 'unavailable'
 }
 
 export function emitPolicyApplied(agent: string, policy: string, detail: string) {

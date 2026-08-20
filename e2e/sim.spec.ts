@@ -1,14 +1,22 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('SIM mode offline flow', () => {
-  test('boot -> objective -> submit -> artifact modal visible', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto('/')
     await page.waitForTimeout(2500)
-
     await page.evaluate(() => localStorage.setItem('axiom.key', 'test-key'))
     await page.reload()
-    await page.waitForTimeout(2000)
+    // Wait until the app has booted and the Header (with the Sim toggle) is present.
+    await page.waitForSelector('[data-testid="run-button"]', { timeout: 15000 })
+    await page.waitForSelector('[data-testid="sim-toggle"]', { timeout: 15000 })
+    // SIM mode is opt-in via the Header Sim toggle; enable it so missions run offline.
+    const simToggle = page.locator('[data-testid="sim-toggle"]')
+    const pressed = await simToggle.getAttribute('data-state').catch(() => null)
+    if (pressed !== 'checked') await simToggle.click()
+    await page.waitForTimeout(200)
+  })
 
+  test('boot -> objective -> submit -> artifact modal visible', async ({ page }) => {
     await page.on('pageerror', (err) => console.log('PAGE ERROR:', err.message))
     await page.on('console', (msg) => {
       if (msg.type() === 'error') console.log('PAGE CONSOLE ERROR:', msg.text())
@@ -42,12 +50,6 @@ test.describe('SIM mode offline flow', () => {
   })
 
   test('deep-research shape emits convergence and telemetry', async ({ page }) => {
-    await page.goto('/')
-    await page.waitForTimeout(2500)
-    await page.evaluate(() => localStorage.setItem('axiom.key', 'test-key'))
-    await page.reload()
-    await page.waitForTimeout(2000)
-
     await page.click('[data-testid="run-button"]')
     await page.waitForTimeout(100)
     await page.click('[data-testid="objective-input"]')
@@ -64,12 +66,6 @@ test.describe('SIM mode offline flow', () => {
   })
 
   test('broad-sweep shape completes with dry-round convergence', async ({ page }) => {
-    await page.goto('/')
-    await page.waitForTimeout(2500)
-    await page.evaluate(() => localStorage.setItem('axiom.key', 'test-key'))
-    await page.reload()
-    await page.waitForTimeout(2000)
-
     await page.click('[data-testid="run-button"]')
     await page.waitForTimeout(100)
     await page.click('[data-testid="objective-input"]')
@@ -86,12 +82,6 @@ test.describe('SIM mode offline flow', () => {
   })
 
   test('standard shape runs default SIM path', async ({ page }) => {
-    await page.goto('/')
-    await page.waitForTimeout(2500)
-    await page.evaluate(() => localStorage.setItem('axiom.key', 'test-key'))
-    await page.reload()
-    await page.waitForTimeout(2000)
-
     await page.click('[data-testid="run-button"]')
     await page.waitForTimeout(100)
     await page.click('[data-testid="objective-input"]')

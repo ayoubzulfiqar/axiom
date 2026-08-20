@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { generateText, streamText, tool } from 'ai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
+import { loadKey } from './vault'
 
 export type Provider = ReturnType<typeof createOpenRouter>
 
@@ -11,7 +12,7 @@ export async function planOnce(opts: {
   signal?: AbortSignal
   maxTokens?: number
 }): Promise<string> {
-  const provider = getProvider()
+  const provider = await getProvider()
   const { text } = await generateText({
     model: provider.chat(opts.model),
     messages: [
@@ -34,7 +35,7 @@ export async function workerStream(opts: {
   maxSteps?: number
   onChunk?: (chunk: { textDelta?: string }) => void
 }): Promise<{ text: string }> {
-  const provider = getProvider()
+  const provider = await getProvider()
   const result = await streamText({
     model: provider.chat(opts.model),
     messages: [
@@ -92,23 +93,55 @@ export function makeCodeExecTool() {
 }
 
 let providerReturn: ReturnType<typeof createOpenRouter> | null = null
+let providerKeyRef: string | null = null
 
-function getProvider() {
-  if (providerReturn) return providerReturn
+/**
+ * Build (or reuse) the OpenRouter provider bound to the BYOK key from the Vault.
+ *
+ * Previously the provider was created once with a compile-time `import.meta.env`
+ * value that was always empty (no `VITE_`-prefixed key existed), so every real
+ * API call went out unauthenticated and failed with 401. Now we read the key the
+ * user actually connected with (`localStorage`/`sessionStorage`/`Stronghold`) and
+ * rebuild the provider only when the key changes. `setProvider` lets tests inject a
+ * mock; `ensureProviderFor(key)` lets callers pin the key before a mission.
+ */
+export async function getProvider(): Promise<Provider> {
+  const key = (await loadKey()) ?? ''
+  if (providerReturn && providerKeyRef === key) return providerReturn
   providerReturn = createOpenRouter({
-    apiKey: '',
+    apiKey: key,
     headers: {
       'HTTP-Referer': typeof location !== 'undefined' ? location.origin : '',
       'X-Title': 'AXIOM Orchestration',
     },
   })
+  providerKeyRef = key
   return providerReturn
+}
+
+/**
+ * Pin the provider to a specific key (e.g. before a mission, or from a build-time
+ * env value). Safe to call with an empty string (falls back to the Vault key).
+ */
+export function ensureProviderFor(key: string) {
+  const trimmed = key.trim()
+  if (!trimmed) return
+  providerReturn = createOpenRouter({
+    apiKey: trimmed,
+    headers: {
+      'HTTP-Referer': typeof location !== 'undefined' ? location.origin : '',
+      'X-Title': 'AXIOM Orchestration',
+    },
+  })
+  providerKeyRef = trimmed
 }
 
 export function setProvider(provider: Provider) {
   providerReturn = provider
+  providerKeyRef = '__mock__'
 }
 
 export function resetProvider() {
   providerReturn = null
+  providerKeyRef = null
 }

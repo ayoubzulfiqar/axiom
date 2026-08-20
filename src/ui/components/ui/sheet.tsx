@@ -18,26 +18,41 @@ function Sheet({ open, onOpenChange, side = 'right', children }: SheetProps) {
   }
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => onOpenChange(false)} />
-      <div className={cn('absolute bg-panel/95 backdrop-blur-xl border-line text-ink shadow-lg', sideClasses[side])}>{children}</div>
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={() => onOpenChange(false)}
+      />
+      <div
+        className={cn(
+          'absolute bg-popover text-popover-foreground border-border shadow-xl',
+          sideClasses[side]
+        )}
+      >
+        {children}
+      </div>
     </div>
   )
 }
 
 function SheetContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('h-full', className)} {...props} />
+  return <div className={cn('h-full overflow-y-auto', className)} {...props} />
 }
 
 function SheetHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('flex flex-col space-y-2 p-4 border-b border-line', className)} {...props} />
+  return <div className={cn('flex flex-col gap-1 border-b border-border p-4', className)} {...props} />
 }
 
 function SheetTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h2 className={cn('text-sm font-semibold tracking-widest', className)} {...props} />
+  return (
+    <h2
+      className={cn('text-sm font-semibold uppercase tracking-[0.18em] text-foreground', className)}
+      {...props}
+    />
+  )
 }
 
 function SheetTrigger({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button {...props}>{children}</button>
+  return <button type="button" {...props}>{children}</button>
 }
 
 export { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger }

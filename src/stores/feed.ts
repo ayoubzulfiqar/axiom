@@ -18,12 +18,18 @@ let idCounter = 0
 const pending: FeedEntry[] = []
 let flushTimer: ReturnType<typeof setTimeout> | null = null
 
+/** Ambient token activity rate (tokens/sec), smoothed — used as a live "pulse" indicator. */
+let tokenRate = 0
+let tokenWindow: number[] = []
+
 export interface FeedState {
   entries: FeedEntry[]
+  tokenRate: number
 }
 
 export const useFeedStore = create<FeedState>(() => ({
   entries: [],
+  tokenRate: 0,
 }))
 
 function flush() {
@@ -41,14 +47,21 @@ function scheduleFlush() {
   flushTimer = setTimeout(() => {
     flushTimer = null
     flush()
+    // decay token rate between flushes
+    const now = Date.now()
+    tokenWindow = tokenWindow.filter((t) => now - t < 1000)
+    tokenRate = tokenWindow.length
+    useFeedStore.setState({ tokenRate })
   }, FLUSH_MS)
 }
 
 export function bindFeedBus() {
   bus.on((ev: BusEvent) => {
+    // Raw token streams are ambient — they drive the canvas "breathing" pulse,
+    // not feed line-items (which would bury the high-signal events).
     if (ev.type === 'token') {
-      pending.push({ id: ++idCounter, tag: 'TOKEN', text: ev.text, time: Date.now() })
-      scheduleFlush()
+      tokenWindow.push(Date.now())
+      tokenRate = tokenWindow.length
       return
     }
     if (ev.type === 'plan-step') {
@@ -124,5 +137,7 @@ export function clearFeed() {
   if (flushTimer) clearTimeout(flushTimer)
   flushTimer = null
   pending.length = 0
-  useFeedStore.setState({ entries: [] })
+  tokenWindow = []
+  tokenRate = 0
+  useFeedStore.setState({ entries: [], tokenRate: 0 })
 }

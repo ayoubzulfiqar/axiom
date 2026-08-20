@@ -13,7 +13,6 @@
   "productName": "AXIOM",
   "version": "2.1.0",
   "identifier": "com.axiom.orchestrator",
-  "platforms": ["windows", "macos", "linux"],
   "app": {
     "windows": [
       {

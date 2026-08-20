@@ -15,17 +15,24 @@ export interface MissionCost {
   pricing: Record<string, ModelPricing>
 }
 
+// OpenRouter free-tier models have $0 pricing. Seed these so the live cost chip
+// shows the true $0.00 instead of a randomized simulation fallback.
+import { FREE_MODELS } from './agents'
+const FREE_PRICING: Record<string, ModelPricing> = Object.fromEntries(
+  Object.values(FREE_MODELS).map((id) => [id, { prompt: 0, completion: 0 }]),
+)
+
 let missionCost: MissionCost = {
   totalCostUsd: 0,
   byNode: {},
-  pricing: {},
+  pricing: { ...FREE_PRICING },
 }
 
 export function resetCost() {
   missionCost = {
     totalCostUsd: 0,
     byNode: {},
-    pricing: {},
+    pricing: { ...FREE_PRICING },
   }
 }
 
@@ -33,10 +40,13 @@ export function setPricing(pricing: Record<string, ModelPricing>) {
   missionCost.pricing = { ...pricing }
 }
 
-export function recordCall(nodeId: string, modelId: string, usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }) {
+export function recordCall(nodeId: string, modelId: string, usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number; cost?: number }) {
   const rate = missionCost.pricing[modelId]
   let costUsd = 0
-  if (rate && typeof usage.prompt_tokens === 'number' && typeof usage.completion_tokens === 'number') {
+  // Prefer the explicit cost OpenRouter returns in `usage.cost` when present.
+  if (typeof usage.cost === 'number') {
+    costUsd = usage.cost
+  } else if (rate && typeof usage.prompt_tokens === 'number' && typeof usage.completion_tokens === 'number') {
     costUsd = usage.prompt_tokens * rate.prompt + usage.completion_tokens * rate.completion
   } else if (typeof usage.total_tokens === 'number') {
     const avgRate = rate ? (rate.prompt + rate.completion) / 2 : 0.000002

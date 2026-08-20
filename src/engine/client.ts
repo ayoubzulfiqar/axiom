@@ -51,7 +51,7 @@ export async function runMission(input: ClientMissionInput): Promise<void> {
     running.set(input.id, ac)
     try {
       const { runMission: run } = await import('./orchestrator')
-      const final = await run(input.objective, ac)
+      const final = await run(input.objective, ac, input.shape ?? 'standard')
       bus.emit({ type: 'mission-complete', final, artifactId: input.id, verified: true })
     } catch (err: any) {
       bus.emit({ type: 'fault', agent: 'orchestrator', error: err?.message ?? 'UNKNOWN' })
@@ -60,6 +60,9 @@ export async function runMission(input: ClientMissionInput): Promise<void> {
     }
     return
   }
+
+  const vault = await import('./vault')
+  const apiKey = await vault.loadKey()
 
   return new Promise((resolve, reject) => {
     const ac = new AbortController()
@@ -79,7 +82,7 @@ export async function runMission(input: ClientMissionInput): Promise<void> {
       return
     }
     worker.addEventListener('message', handler)
-    worker.postMessage({ type: 'run-mission', payload: input })
+    worker.postMessage({ type: 'run-mission', payload: input, apiKey: apiKey ?? '' })
   })
 }
 

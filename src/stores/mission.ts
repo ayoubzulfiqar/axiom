@@ -34,7 +34,14 @@ export function bindMissionBus() {
       useMissionStore.setState({ status: 'running', objective: ev.objective, startedAt: Date.now(), fault: null, currentArtifactId: null, verified: null, decisions: [] })
     }
     if (ev.type === 'plan-step') {
-      useMissionStore.setState({ step: ev.n, total: ev.total })
+      useMissionStore.setState((s) => ({
+        step: ev.n,
+        total: ev.total,
+        decisions: [
+          ...s.decisions,
+          { step: ev.n, thought: ev.thought, routes: ev.decision?.routes ?? [] },
+        ],
+      }))
     }
     if (ev.type === 'mission-complete') {
       useMissionStore.setState({ status: 'complete', currentArtifactId: ev.artifactId ?? null, verified: ev.verified ?? null })

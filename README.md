@@ -10,12 +10,47 @@ AXIOM is a monochrome, browser-native orchestration console that turns an OpenRo
 - Graph Shapes: Standard, Deep Research, Adversarial Review, Broad Sweep
 - Expanded tests/docs + Playwright per-shape e2e
 
-## Phase 3 — Production Polish
+## Phase 4 — Free-model support, QA & mobile polish
 
-- Cost observability: per-node cost accrual, Header cost chip, GraphDrawer cost bars
-- Context management: compact mission history under token budget with digest
-- Worker offload: Web Worker engine host with in-thread fallback
-- Local RAG: file ingestion, chunking, embedding, cosine search, RESEARCHER tool
+- **OpenRouter `:free` tier works end-to-end.** Default agents now target verified free models
+  (`google/gemma-4-26b-a4b-it:free`, `z-ai/glm-5.2:free`, `nvidia/nemotron-3-super-120b-a12b:free`,
+  `poolside/laguna-xs-2.1:free`). No key charges in SIM or real mode.
+- **BYOK key actually reaches the engine.** The provider was previously built once from a non-existent
+  `VITE_` env value (always empty → 401). It now lazily reads the key you connect with (Vault →
+  `localStorage`/`sessionStorage`/Stronghold) and is injected into the Web Worker (workers have no
+  `localStorage`) via `setRuntimeKey`/`ensureProviderFor`.
+- **Failure-signal hardening** (false-green audit):
+  - Critic `fallbackModel` is free (`poolside/laguna-xs-2.1:free`) — a paid fallback would silently
+    charge the user on model outage. Regression-guarded by a test.
+  - `budgetAvailable` no longer swallows a 401 as "ok": an invalid key surfaces a clear
+    `BUDGET ▸ API key rejected by OpenRouter (401)` fault before the mission starts.
+  - Empty/unknown model responses fail fast (`unavailable`) instead of looping as `transient`.
+- **Mobile layout fixed.** The header overflowed ~67px on ≤390px viewports, clipping the primary
+  "Run Mission" CTA. The logo subtext now hides below `sm`, clusters shrink (`min-w-0`), and the CTA
+  collapses to "Run" on mobile — fully reachable, no horizontal scroll at 390×780.
+- **Regression suite added.** `tests/policies.test.ts` (free-tier fallback + error classification) and
+  `tests/vault_budget.test.ts` (invalid-key / exhausted / unreachable budget signals). Live e2e
+  (`e2e/live_free.spec.ts`) runs a real mission against OpenRouter free models in a browser.
+
+## Project demo
+
+AXIOM running in a real browser (Chromium) against OpenRouter free models — idle mesh, mission
+dispatch, live agent activity, and the delivered artifact.
+
+### Desktop
+
+| Boot / idle mesh | Objective + graph-shape selector | Mission running | Delivered artifact |
+| --- | --- | --- | --- |
+| ![idle mesh](screenshots/desktop-02-mesh-idle.png) | ![objective dialog](screenshots/desktop-04-objective-filled.png) | ![mission running](screenshots/desktop-05-mission-running.png) | ![artifact](screenshots/desktop-06-artifact.png) |
+
+### Mobile (390×780)
+
+| Idle mesh | Objective dialog | Mission running | Artifact |
+| --- | --- | --- | --- |
+| ![mobile idle](screenshots/mobile-01-mesh-idle.png) | ![mobile dialog](screenshots/mobile-02-objective-dialog.png) | ![mobile running](screenshots/mobile-03-mission-running.png) | ![mobile artifact](screenshots/mobile-04-artifact.png) |
+
+> Screenshots captured with `e2e/shots.spec.ts` (`pnpm run test:e2e --e2e/shots.spec.ts` after
+> `pnpm run dev`). If a free-model run is rate-limited, re-run — the engine retries transients.
 
 ## Stack
 
@@ -211,16 +246,29 @@ Tools emit `tool-call` and `tool-result` bus events, which appear in the Feed an
 ## Desktop packaging (Tauri 2)
 
 Prerequisites:
-- Rust toolchain (`rustup`, `cargo`)
+- Rust toolchain (`rustup`, `cargo`) — **required to actually compile the bundle**
 - System dependencies for Tauri (WebView2 on Windows, webkit2gtk on Linux, Xcode on macOS)
+
+Install the Rust toolchain if missing:
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
 
 Commands:
 ```bash
-pnpm run tauri:dev
-pnpm run tauri:build
+pnpm install
+pnpm run tauri:dev      # dev with hot reload (frontend on :1420)
+pnpm run tauri:build    # produces platform bundles into src-tauri/target/release/bundle
 ```
 
-The desktop app uses `tauri-plugin-stronghold` for key storage. The same `dist/` bundle works for Capacitor mobile builds.
+`tauri.conf.json` was corrected for Tauri 2.x: the Tauri-1 `platforms` key was removed (platforms are
+inferred from the build target), so the config now validates and reaches the `cargo` step. The Rust
+sources (`main.rs`, `lib.rs`, `stronghold.rs`, `build.rs`) and capabilities are in place; key storage
+uses `tauri-plugin-stronghold`. The same `dist/` bundle works for Capacitor mobile builds.
+
+> Note: on a machine without `cargo`/`rustc`, `pnpm run tauri:build` fails at the `cargo metadata`
+> step (environment limitation, not a code defect). The frontend (`pnpm run build` → `dist/`) builds
+> cleanly and is what the Tauri shell loads.
 
 ## Production hardening
 

@@ -1,4 +1,4 @@
-import { AnimatePresence } from 'motion/react'
+import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { BootOverlay } from './components/BootOverlay'
 import { Roster } from './components/Roster'
 import { Feed } from './components/Feed'
@@ -12,35 +12,47 @@ import { Header } from './components/Header'
 import { GraphDrawer } from './components/GraphDrawer'
 import { ApprovalDialog } from './components/ApprovalDialog'
 import { useBus } from './stores/bus'
+import { AmbientBackground } from './fx'
 import '../index.css'
 
 export default function App() {
   const booted = useBus((s) => s.booted)
 
   return (
-    <div className="h-screen w-screen bg-bg text-ink flex flex-col overflow-hidden">
-      {!booted && <BootOverlay />}
-      {booted && (
-        <div className="flex-1 flex flex-col min-w-0">
-          <Header />
-          <div className="flex-1 flex flex-col min-w-0">
-            <Roster />
-            <div className="flex-1 flex flex-col min-w-0">
-              <Feed />
-              <Stage />
-              <DetailCard />
-            </div>
-          </div>
-          <VaultDialog />
-          <HistoryDrawer />
-          <ObjectivePrompt />
-          <GraphDrawer />
-          <ApprovalDialog />
-          <AnimatePresence>
-            <ArtifactModal />
-          </AnimatePresence>
-        </div>
-      )}
-    </div>
+    <MotionConfig reducedMotion="user">
+      <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
+        <AmbientBackground />
+        <AnimatePresence mode="wait">
+          {!booted && <BootOverlay key="boot" />}
+          {booted && (
+            <motion.div
+              key="app"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              className="flex min-w-0 flex-1 flex-col"
+            >
+              <Header />
+              <div className="flex min-w-0 flex-1">
+                <Roster />
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <Feed />
+                  <Stage />
+                  <DetailCard />
+                </div>
+              </div>
+              <VaultDialog />
+              <HistoryDrawer />
+              <ObjectivePrompt />
+              <GraphDrawer />
+              <ApprovalDialog />
+              <AnimatePresence>
+                <ArtifactModal />
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </MotionConfig>
   )
 }

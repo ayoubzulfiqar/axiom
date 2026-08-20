@@ -1,6 +1,8 @@
 import Dexie from 'dexie'
 import { ChunkStore } from './storage'
 import { chunkText, embedText, rankChunks, emitIngestProgress, emitRagReady } from './rag'
+import { setRuntimeKey } from './vault'
+import { ensureProviderFor } from './llm'
 import { resetCost } from './cost'
 
 const db = new Dexie('axiom')
@@ -18,12 +20,18 @@ self.onmessage = async (e: MessageEvent) => {
 
   if (msg.type === 'run-mission') {
     const input = msg.payload
+    const apiKey: string = msg.apiKey ?? ''
+    // Workers have no localStorage; inject the key so the engine (and the provider) can use it.
+    if (apiKey) {
+      setRuntimeKey(apiKey)
+      ensureProviderFor(apiKey)
+    }
     const ac = new AbortController()
     running.set(input.id, ac)
     try {
       resetCost()
       const { runMission } = await import('./orchestrator')
-      const final = await runMission(input.objective, ac)
+      const final = await runMission(input.objective, ac, input.shape ?? 'standard')
       post({ type: 'mission-complete', final, artifactId: input.id, verified: true })
     } catch (err: any) {
       post({ type: 'fault', agent: 'orchestrator', error: err?.message ?? 'UNKNOWN' })

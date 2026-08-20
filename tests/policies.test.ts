@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { getDefs, initDefs } from '../src/engine/agents'
-import { resolvePolicy, emitPolicyApplied } from '../src/engine/policies'
+import { resolvePolicy, emitPolicyApplied, errorTypeFor } from '../src/engine/policies'
 
 describe('policies', () => {
   beforeEach(() => {
@@ -44,5 +44,22 @@ describe('policies', () => {
     emitPolicyApplied('AGENT-00', 'stop', '401')
     unsub()
     expect(events).toEqual([{ type: 'policy-applied', agent: 'AGENT-00', policy: 'stop', detail: '401' }])
+  })
+
+  it('critic fallback model stays on the FREE tier (no silent paid calls)', () => {
+    const criticId = getDefs().find((d) => d.role === 'critic')?.id ?? 'AGENT-04'
+    const r = resolvePolicy(criticId, 'unavailable', 'model offline')
+    expect(r.policy).toBe('fallback')
+    // Regression guard: a paid fallback would charge the user in a free-only workflow.
+    expect(r.fallbackModel).toBeTruthy()
+    expect(r.fallbackModel).toMatch(/:free$/)
+  })
+
+  it('errorTypeFor classifies empty/unknown failures as unavailable (not transient)', () => {
+    expect(errorTypeFor(new Error('EMPTY_RESPONSE model returned no content'))).toBe('unavailable')
+    expect(errorTypeFor(new Error(''))).toBe('unavailable')
+    expect(errorTypeFor(new Error('something weird happened'))).toBe('unavailable')
+    // Genuine rate-limits stay transient so they retry.
+    expect(errorTypeFor(new Error('429 rate limit'))).toBe('transient')
   })
 })

@@ -6,11 +6,25 @@ export interface DefOverrides {
   [id: string]: string
 }
 
+/**
+ * Free OpenRouter model IDs used as the default mesh. All are `$0` prompt/completion
+ * on OpenRouter's free tier (verified live against `/api/v1/models`). They let the
+ * platform run real missions with zero spend. Override per-agent from the UI or the
+ * Vault; these are only defaults.
+ */
+export const FREE_MODELS = {
+  orchestrator: 'google/gemma-4-26b-a4b-it:free',
+  researcher: 'z-ai/glm-5.2:free',
+  analyst: 'nvidia/nemotron-3-super-120b-a12b:free',
+  writer: 'google/gemma-4-26b-a4b-it:free',
+  critic: 'poolside/laguna-xs-2.1:free',
+} as const
+
 export const DEFAULT_AGENT_DEFS: Omit<AgentDef, 'id' | 'state'>[] = [
   {
     label: 'ORCHESTRATOR',
     role: 'orchestrator',
-    model: 'anthropic/claude-3.5-sonnet',
+    model: FREE_MODELS.orchestrator,
     system: 'You are AXIOM Orchestrator. Output only JSON with keys thought, dispatch (max 3), final (null or string).',
     outputSchema: undefined,
     failure: 'PLAN_PARSE_FAIL',
@@ -19,7 +33,7 @@ export const DEFAULT_AGENT_DEFS: Omit<AgentDef, 'id' | 'state'>[] = [
   {
     label: 'RESEARCHER',
     role: 'researcher',
-    model: 'openai/gpt-4o-mini',
+    model: FREE_MODELS.researcher,
     system: 'You are AXIOM Researcher. Return concise findings. Use web_search when helpful.\nReply ONLY with JSON matching the schema:\n{"claims":[{"claim":string,"source_url?":string,"confidence":"high"|"medium"|"low"}]}',
     tools: ['web_search'],
     outputSchema: AGENT_OUTPUT_SCHEMAS.researcher,
@@ -29,7 +43,7 @@ export const DEFAULT_AGENT_DEFS: Omit<AgentDef, 'id' | 'state'>[] = [
   {
     label: 'ANALYST',
     role: 'analyst',
-    model: 'google/gemini-flash-1.5',
+    model: FREE_MODELS.analyst,
     system: 'You are AXIOM Analyst. Provide structured analysis. Use code_exec for calculations.\nReply ONLY with JSON matching the schema:\n{"findings":[string],"metrics?":Record<string,string>,"conclusion":string}',
     tools: ['code_exec'],
     outputSchema: AGENT_OUTPUT_SCHEMAS.analyst,
@@ -39,7 +53,7 @@ export const DEFAULT_AGENT_DEFS: Omit<AgentDef, 'id' | 'state'>[] = [
   {
     label: 'WRITER',
     role: 'writer',
-    model: 'anthropic/claude-3.5-haiku',
+    model: FREE_MODELS.writer,
     system: 'You are AXIOM Writer. Produce clear prose.\nReply ONLY with JSON matching the schema:\n{"sections":[{"heading":string,"body":string}]}',
     outputSchema: AGENT_OUTPUT_SCHEMAS.writer,
     failure: 'EMPTY_DRAFT',
@@ -48,11 +62,11 @@ export const DEFAULT_AGENT_DEFS: Omit<AgentDef, 'id' | 'state'>[] = [
   {
     label: 'CRITIC',
     role: 'critic',
-    model: 'openai/gpt-4o',
+    model: FREE_MODELS.critic,
     system: 'You are AXIOM Critic. Critique and suggest improvements.\nReply ONLY with JSON matching the schema:\n{"verdict":"pass"|"fail","issues":[string]}',
     outputSchema: AGENT_OUTPUT_SCHEMAS.critic,
     failure: 'CRITIC_UNAVAILABLE',
-    policy: { retries: 2, fallbackModel: 'openai/gpt-4o-mini', onFail: 'fallback' },
+    policy: { retries: 2, fallbackModel: 'nvidia/nemotron-3-nano-30b-a3b:free', onFail: 'fallback' },
   },
 ]
 

@@ -23,9 +23,24 @@ export async function initStronghold() {
 }
 
 export async function loadKey(): Promise<string | null> {
+  // Worker context: localStorage doesn't exist. Use an injected runtime key if present.
+  if (runtimeKey) return runtimeKey
+  if (typeof localStorage === 'undefined' && typeof sessionStorage === 'undefined') {
+    return runtimeKey
+  }
   if (stronghold) return stronghold.readKey()
   return localStorage.getItem(LS_KEY) ?? sessionStorage.getItem(LS_KEY)
 }
+
+/**
+ * Set the API key directly (e.g. inside a Web Worker, where localStorage is unavailable
+ * but the key still needs to reach the engine). `loadKey()` prefers this when set.
+ */
+export function setRuntimeKey(key: string | null) {
+  runtimeKey = key ?? ''
+}
+
+let runtimeKey = ''
 
 export async function storeKey(apiKey: string, sessionOnly: boolean) {
   if (stronghold) {
@@ -38,11 +53,19 @@ export async function storeKey(apiKey: string, sessionOnly: boolean) {
 
 export async function clearKey() {
   if (stronghold) {
-    try { await stronghold.writeKey('') } catch {}
+    try { await stronghold.writeKey('') } catch { }
     return
   }
   localStorage.removeItem(LS_KEY)
   sessionStorage.removeItem(LS_KEY)
+}
+
+/**
+ * Persist the key as session-only (used to inject a build-time key, e.g. a CI/local
+ * `.env.local` value) so the engine can pick it up via `loadKey()`.
+ */
+export async function saveKey(apiKey: string, sessionOnly = true) {
+  await storeKey(apiKey, sessionOnly)
 }
 
 export function maskKey(k: string | null): string {
@@ -88,22 +111,29 @@ export function loadSessionOnly(): boolean {
   return sessionStorage.getItem(LS_SESSION) === '1'
 }
 
-export async function budgetAvailable(apiKey: string): Promise<{ ok: boolean; label?: string; usage?: number; limit?: number }> {
+export async function budgetAvailable(apiKey: string): Promise<{ ok: boolean; label?: string; usage?: number; limit?: number; reason?: string }> {
   try {
     const base = API_BASE
     const res = await fetch(`${base}/key`, {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(12000),
     } as any)
-    if (!res.ok) return { ok: true }
+    if (res.status === 401) {
+      // Invalid/revoked key: surface it so the user gets a clear signal instead of a
+      // later, harder-to-diagnose 401 on every agent call.
+      return { ok: false, reason: 'invalid-key' }
+    }
+    if (!res.ok) return { ok: true, reason: `key-check-${res.status}` }
     const data = (await res.json()) as { data?: { usage?: number; limit?: number; is_free_tier?: boolean }; label?: string }
     const usage = Number(data?.data?.usage ?? 0)
     const limit = Number(data?.data?.limit ?? 0)
     if (limit > 0 && usage >= limit - 0.05) {
-      return { ok: false, label: data?.label ?? 'KEY', usage, limit }
+      return { ok: false, label: data?.label ?? 'KEY', usage, limit, reason: 'budget-exhausted' }
     }
     return { ok: true, label: data?.label ?? 'KEY', usage, limit }
   } catch {
-    return { ok: true }
+    // Network error reaching the key endpoint: don't block the mission on it, but flag
+    // why we couldn't verify (callers can choose to warn rather than hard-fail).
+    return { ok: true, reason: 'key-check-unreachable' }
   }
 }

@@ -38,19 +38,30 @@ export function FileDropZone() {
 
   return (
     <div
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+      onDragOver={(e) => {
+        e.preventDefault()
+        setDragOver(true)
+      }}
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
-      className={`border border-dashed rounded p-4 text-center transition ${
-        dragOver ? 'border-ink bg-panel' : 'border-line'
+      className={`rounded-lg border border-dashed p-4 text-center transition-colors ${
+        dragOver ? 'border-foreground bg-accent' : 'border-border'
       }`}
       data-testid="file-drop-zone"
     >
-      <div className="text-[10px] text-dim mb-2">Drop .txt / .md / .csv / .pdf here</div>
+      <div className="mb-2 text-[11px] text-muted-foreground">
+        Drop .txt / .md / .csv / .pdf to ingest into the mesh
+      </div>
       <label className="inline-flex items-center gap-2">
-        <input type="file" accept=".txt,.md,.csv,.pdf" onChange={handleBrowse} className="hidden" data-testid="file-input" />
-        <Button variant="outline" size="sm" className="border-line text-ink" disabled={ingesting}>
-          {ingesting ? 'INGESTING...' : 'BROWSE'}
+        <input
+          type="file"
+          accept=".txt,.md,.csv,.pdf"
+          onChange={handleBrowse}
+          className="hidden"
+          data-testid="file-input"
+        />
+        <Button variant="outline" size="sm" className="border-border" disabled={ingesting}>
+          {ingesting ? 'Ingesting…' : 'Browse'}
         </Button>
       </label>
     </div>
