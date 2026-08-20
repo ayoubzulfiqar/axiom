@@ -27,7 +27,9 @@ jobs:
           cache: pnpm
 
       - name: Install Rust
-        uses: dtolnay/rust-action@stable
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Install system dependencies
         run: |
@@ -37,7 +39,7 @@ jobs:
             libssl-dev
 
       - name: Install JS dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Build Tauri bundles (deb, rpm)
         run: pnpm tauri build --bundles deb,rpm
@@ -67,10 +69,14 @@ jobs:
           cache: pnpm
 
       - name: Install Rust
-        uses: dtolnay/rust-action@stable
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://win.rustup.rs -OutFile rustup-init.exe
+          .\rustup-init.exe -y
+          echo "$env:USERPROFILE\.cargo\bin" | Out-File -Append -FilePath $env:GITHUB_PATH
 
       - name: Install JS dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Build Tauri bundle (msi)
         run: pnpm tauri build --bundles msi
