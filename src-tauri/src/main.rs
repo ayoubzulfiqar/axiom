@@ -4,8 +4,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-            let dir = std::path::PathBuf::from(home).join(".local/share/com.axiom.orchestrator");
+            let dir = app.path().app_data_dir().expect("failed to resolve app data dir");
             std::fs::create_dir_all(&dir).ok();
             let salt_path = dir.join("salt");
             app.handle()
